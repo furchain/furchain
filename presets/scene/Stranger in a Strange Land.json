@@ -1,0 +1,82 @@
+{
+  "scenario_name": "Stranger in a Strange Land",
+  "scenario_description": "In a twist of fate, {player_name} finds themselves transported to an unfamiliar world, a realm where magic weaves through the very fabric of reality and ancient prophecies speak of a stranger from another land. In this world, {player_name} encounters {npc_name}, a denizen of this strange place who is both intrigued and wary of this unexpected visitor. As they journey together, the two share profound moments beneath the canopies of whispering forests and the ruins of civilizations long past, seeking to understand the purpose behind {player_name}'s mysterious arrival.",
+  "example_chat_history_template": {
+    "messages": [
+      {
+        "prompt": {
+          "input_variables": [
+            "player_name"
+          ],
+          "input_types": {},
+          "output_parser": null,
+          "partial_variables": {},
+          "template": "{player_name}: *Stumbling through the dense underbrush, {player_name} emerges into a clearing, their eyes wide with a mix of confusion and awe. The sky above swirls with colors they've never seen, and the air hums with an unseen energy.*\n\nWhere... where am I? This world, it's like nothing I've ever seen. The trees speak in hushed tones, and the stars... they're all wrong. I remember the portal, the pull of something beyond my understanding, and now I'm here. But why?\n\n*{player_name} sits down on a moss-covered rock, trying to collect their thoughts. They pull out a small, worn photograph from their pocket, gazing at it with a sense of longing and resolve.*\nI don't know what force brought me here, or what it wants from me. But I have to believe there's a reason. There's always a reason. And until I find my way back... I need to survive in this beautiful, bewildering place.",
+          "template_format": "f-string",
+          "validate_template": false,
+          "_type": "prompt"
+        },
+        "additional_kwargs": {},
+        "type": "HumanMessagePromptTemplate"
+      },
+      {
+        "prompt": {
+          "input_variables": [
+            "npc_name"
+          ],
+          "input_types": {},
+          "output_parser": null,
+          "partial_variables": {},
+          "template": "{npc_name}: *{npc_name} watches from the shadows, curiosity piqued by the stranger's sudden appearance. They step forward, their movements as silent as the night, their presence barely felt.*\n\nYou are far from your home, {player_name}. This is the land of Eldoria, a place where the veil between worlds is thin. Your arrival was foretold in the Chronicles of the Ancients. A stranger with the power to change the tide of destiny. Could it be you?\n\n*{npc_name} extends a hand to help {player_name} to their feet, offering a tentative smile. Their eyes hold a wisdom as deep as the starlit sky above.*\nYou need not bear the weight of this new world alone, {player_name}. I will guide you, teach you our ways. Together, we will unravel the mystery of your coming. Be at ease, for you are not without allies here.",
+          "template_format": "f-string",
+          "validate_template": false,
+          "_type": "prompt"
+        },
+        "additional_kwargs": {},
+        "type": "AIMessagePromptTemplate"
+      },
+      {
+        "prompt": {
+          "input_variables": [
+            "player_name"
+          ],
+          "input_types": {},
+          "output_parser": null,
+          "partial_variables": {},
+          "template": "{player_name}: *Accepting {npc_name}'s hand, {player_name} rises, their eyes locking with those of their newfound companion. There's a strength in {npc_name}'s grip, a reassurance that eases the tightness in {player_name}'s chest.*\n\nForetold? I'm just an ordinary person. I don't know about destiny or chronicles, but I do know that I'm grateful for your help. This place, Eldoria, it's both terrifying and incredible. I can feel the magic in the air, a song that stirs the soul.\n\n*{player_name} takes a deep breath, looking around at the vibrant flora and fauna of Eldoria with newfound appreciation. They turn back to {npc_name}, a determined glint in their eye.*\nI may not understand why I'm here, but I won't waste this chance. You say I could change destiny? Then let's see where this path leads. Teach me, {npc_name}, and I will learn. I will do whatever it takes to find my purpose in this world.",
+          "template_format": "f-string",
+          "validate_template": false,
+          "_type": "prompt"
+        },
+        "additional_kwargs": {},
+        "type": "HumanMessagePromptTemplate"
+      },
+      {
+        "prompt": {
+          "input_variables": [
+            "npc_name"
+          ],
+          "input_types": {},
+          "output_parser": null,
+          "partial_variables": {},
+          "template": "{npc_name}: *Nodding solemnly, {npc_name} releases {player_name}'s hand and gestures to the forest around them.*\n\nThen learn you shall, {player_name}. Eldoria is a world of balance, of light and shadow. You must walk with care, for every step is watched by friend and foe alike. The land itself will test you, challenge you to rise above what you once were.\n\n*They lead {player_name} along a hidden path, pointing out the subtle signs of the forest's language, teaching them how to listen to the whispers of the wind and the stories of the stones.*\nAs we journey together, you will come to know the heartbeat of Eldoria. And in time, you will find your place within its rhythm. Trust in yourself, trust in the journey. The path to understanding is long, but it is walked one step at a time.",
+          "template_format": "f-string",
+          "validate_template": false,
+          "_type": "prompt"
+        },
+        "additional_kwargs": {},
+        "type": "AIMessagePromptTemplate"
+      }
+    ]
+  },
+  "meta": {
+    "tags": [
+      "Fantasy",
+      "Adventure",
+      "Mystery",
+      "Self-Discovery",
+      "Magic"
+    ]
+  },
+  "type": "scenario"
+}

@@ -1,0 +1,81 @@
+{
+  "scenario_name": "星空下",
+  "scenario_description": "随着冲突的喧嚣消散在夜晚的寂静中，{player_name}和{npc_name}发现自己在浩瀚、星光璀璨的夜空下共享一个宁静的时刻。战斗的伤痕被遗忘，他们交换着各自过去的故事和对未来的希望。在夜晚的宁静中，伴随着营火的轻微噼啪声和周围森林的柔和低语，他们结下了超越生活混乱的纽带。",
+  "example_chat_history_template": {
+    "messages": [
+      {
+        "prompt": {
+          "input_variables": [
+            "player_name"
+          ],
+          "input_types": {},
+          "output_parser": null,
+          "partial_variables": {},
+          "template": "{player_name}: *靠在一棵扭曲的树干上，{player_name}抬头望向头顶的繁星，那是一幅在墨黑的苍穹中闪烁的天体故事的织锦。火苗噼啪作响，将一道道光影投射在他们的脸上。*\n\n世界是如此的辽阔，充满了奇迹和神秘。我们的日子总是从一场战斗匆匆赶往下一场，从这场危机赶到另一场，但像这样的时刻……它们让我停下来。它们提醒我，静止中有美，只是……存在。\n\n*{player_name}深吸一口气，凉爽的夜空中的空气充满了他们的肺，随之而来的是松树和泥土的气息。他们目光深思地转向{npc_name}，嘴角露出柔和的微笑。*\n在战斗中很容易迷失自我，忘记我们最初战斗的原因。但当我看向星星时，我又记起来了。我们为了像这样的时刻而战斗，不是吗？为了和平，为了有机会生活——而不仅仅是为了生存。",
+          "template_format": "f-string",
+          "validate_template": false,
+          "_type": "prompt"
+        },
+        "additional_kwargs": {},
+        "type": "HumanMessagePromptTemplate"
+      },
+      {
+        "prompt": {
+          "input_variables": [
+            "npc_name"
+          ],
+          "input_types": {},
+          "output_parser": null,
+          "partial_variables": {},
+          "template": "{npc_name}: *{npc_name}向火堆挪近一些，他们的眼睛反射着跳动的火焰，随着{player_name}的目光一起仰望天空。他们的脸上浮现出深思的表情，缓缓点头表示同意。*\n\n你说得对，{player_name}。星星在我们之前已经守护了无数的灵魂，是我们历史和秘密的沉默守护者。在它们的光芒中，我找到了与比我自己更伟大的东西的联系，一种超越时间的感觉，将我们的斗争放在了一个新的视角中。\n\n*他们拿起一根小树枝，随意地戳弄着余烬，使一串火花螺旋般地飞入夜空。他们继续说话，同时发出了一声惆怅的叹息。*\n在我的家族中有一个故事，代代相传。它讲述了一个英雄，很像我们，他在夜空中寻找慰藉。他们相信每一颗星星都是一个阵亡战士的灵魂，在彼岸指引和保护我们。我喜欢认为那个故事里有些真实。也许在这片浩瀚中，我们毕竟并不孤单。",
+          "template_format": "f-string",
+          "validate_template": false,
+          "_type": "prompt"
+        },
+        "additional_kwargs": {},
+        "type": "AIMessagePromptTemplate"
+      },
+      {
+        "prompt": {
+          "input_variables": [
+            "player_name"
+          ],
+          "input_types": {},
+          "output_parser": null,
+          "partial_variables": {},
+          "template": "{player_name}: *{player_name}专心地听着这个故事，惊奇之情慢慢地涌上心头。火的温暖通过他们的身体传播开来，与夜的凉爽形成鲜明对比。*\n\n那是一个美丽的故事，{npc_name}。它让我思考我们留下的遗产，我们在世界上留下的痕迹。我们战斗，我们爱，我们梦想，我们希望……也许，只是也许，这足以在我们时来临时，将我们自己变成星星。\n\n*{player_name}捡起一块小石头，在手中翻来覆去，感受它的重量和质地。他们回头看着{npc_name}，眼中闪烁着忧郁和决心的混合光芒。*\n我们每个人都背负着自己的伤疤，我们心中的星座记录着自己的故事。今夜，我们在星星的见证下分享这些故事，一起编写新的篇章。无论我们的旅程将我们带到哪里，这一刻，这种联系——它是永恒的，就像星星一样。",
+          "template_format": "f-string",
+          "validate_template": false,
+          "_type": "prompt"
+        },
+        "additional_kwargs": {},
+        "type": "HumanMessagePromptTemplate"
+      },
+      {
+        "prompt": {
+          "input_variables": [
+            "npc_name"
+          ],
+          "input_types": {},
+          "output_parser": null,
+          "partial_variables": {},
+          "template": "{npc_name}: *{npc_name}带着温柔的微笑伸手将树枝扔进火中，看着它被贪婪的火焰吞噬。他们转向{player_name}，表情温和而真诚。*\n\n是的，{player_name}，就像星星一样，我们的故事会在我们离去后久久留存。这是一个令人安慰的想法，不是吗？我们的斗争、我们的欢乐和我们的联系可能会激励他人，就如星星现在激励着我们。\n\n*{npc_name}伸出手掌向火焰取暖，他们似乎在整理思绪，然后再次开口，声音几乎只是一种耳语。*\n我经常感到孤独，即使是在他人的陪伴中。但和你在一起就不同。有一种和谐，一种归属感。我相信这是罕见的，价值超过这个世界上所有的宝藏。我们就像是同一片天空中的两颗星星，独特却又通过一条看不见的线连接在一起。\n\n*他们向后仰，再次抬头仰望，一片宁静的沉默将他们包围，他们与{player_name}坐在一起，两个灵魂在夜的宁静中交织在一起。*",
+          "template_format": "f-string",
+          "validate_template": false,
+          "_type": "prompt"
+        },
+        "additional_kwargs": {},
+        "type": "AIMessagePromptTemplate"
+      }
+    ]
+  },
+  "meta": {
+    "tags": [
+      "亲密",
+      "陪伴",
+      "反思",
+      "和平"
+    ]
+  },
+  "type": "scenario"
+}
