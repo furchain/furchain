@@ -9,25 +9,16 @@ import soundfile as sf
 from audio_separator.separator import Separator
 from pydub import AudioSegment
 
+from furchain.logger import logger
+
 
 class FlexibleAudioIterator:
     def __init__(self, filename, chunk_duration=10.0, sr=None):
         self.filename = filename
         self.chunk_duration = chunk_duration if chunk_duration > 0 else 2 ** 31
-        self.sr = sr
-        self.audio = None
-        self.chunk_size = None
         self.current_pos = 0
-
-    def __enter__(self):
-        # Load the audio file when entering the context
-        self.audio, self.sr = librosa.load(self.filename, sr=self.sr, mono=True)
+        self.audio, self.sr = librosa.load(self.filename, sr=sr, mono=True)
         self.chunk_size = int(self.sr * self.chunk_duration)
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        # Perform any cleanup if necessary when exiting the context
-        pass
 
     def __iter__(self):
         return self
@@ -49,6 +40,7 @@ class FlexibleAudioIterator:
                 bytes_data = bytes_io.read()
                 return bytes_data
         except Exception as e:
+            logger.error(e)
             raise StopIteration(e)
 
     def read(self, duration):
@@ -80,26 +72,65 @@ class FlexibleAudioIterator:
 
 
 class AudioSeparator:
-    def __init__(self, filename, chunk_duration=10):
+    """
+    This class is used to separate audio into different stems (vocal and instrumental) by iterating over chunks of the audio.
+
+    Attributes:
+        filename (str): The path to the audio file.
+        chunk_duration (int): The duration of each chunk in seconds. Default is 10 seconds.
+        separator (Separator): An instance of the Separator class used to separate the audio.
+        audio_iterator (FlexibleAudioIterator): An instance of the FlexibleAudioIterator class used to iterate over the audio.
+    """
+
+    def __init__(self, filename, chunk_duration=10, model_name="UVR-MDX-NET-Inst_HQ_3"):
+        """
+        The constructor for the AudioSeparator class.
+
+        Parameters: filename (str): The path to the audio file. chunk_duration (int): The duration of each chunk in
+        seconds. Default is 10 seconds. Set to '-1' to disable chunk split. model_name (str): The name of the model
+        to use for separation. Default is 'UVR-MDX-NET-Inst_HQ_3'.
+        """
         self.filename = filename
         self.chunk_duration = chunk_duration
         self.separator = Separator()
-        self.separator.load_model()
+        self.separator.load_model(model_name=model_name)
         self.audio_iterator = None
 
     def __enter__(self):
+        """
+        The method to make AudioSeparator a context manager. It initializes the audio_iterator.
+
+        Returns:
+            self: Returns the instance of the class.
+        """
         self.audio_iterator = FlexibleAudioIterator(self.filename, self.chunk_duration)
-        self.audio_iterator.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.audio_iterator.__exit__(exc_type, exc_value, traceback)
+        """
+        The method to make AudioSeparator a context manager. It cleans up the audio_iterator when exiting the context.
+        """
         self.audio_iterator = None
 
     def __iter__(self):
+        """
+        The method to make AudioSeparator iterable.
+
+        Returns:
+            self: Returns the instance of the class.
+        """
         return self
 
     def __next__(self):
+        """
+        The method to make AudioSeparator an iterator. It separates each chunk of audio into vocal and instrumental stems.
+
+        Returns:
+            tuple: A tuple containing the byte data of the vocal and instrumental audio.
+
+        Raises:
+            StopIteration: If the audio_iterator is not initialized or if there are no more chunks to process.
+        """
         if self.audio_iterator is None:
             raise StopIteration("Audio iterator not initialized. Use 'with' statement to initialize.")
 
