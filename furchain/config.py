@@ -65,3 +65,7 @@ class AudioConfig:
     @staticmethod
     def get_azure_region():
         return os.environ['FURCHAIN_AUDIO_AZURE_REGION']
+
+    @staticmethod
+    def get_funasr_api():
+        return os.environ['FURCHAIN_AUDIO_FUNASR_API']

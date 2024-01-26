@@ -40,7 +40,7 @@ class FlexibleAudioIterator:
                 bytes_data = bytes_io.read()
                 return bytes_data
         except Exception as e:
-            logger.error(e)
+            logger.exception(e)
             raise StopIteration(e)
 
     def read(self, duration):
