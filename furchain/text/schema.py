@@ -1,5 +1,6 @@
 import json
-from typing import Optional, Any
+import uuid
+from typing import Optional, Any, Iterable
 
 import requests
 from langchain.output_parsers import PydanticOutputParser
@@ -17,12 +18,14 @@ from langchain_core.runnables import Runnable
 from langchain_core.runnables import RunnableConfig
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.runnables.utils import Output
+from llama_cpp.llama_grammar import json_schema_to_gbnf
 from pymongo import MongoClient
 
 from furchain.config import TextConfig
 from furchain.text.callbacks import StrChunkCallbackIterator
+from furchain.text.chat_format import ChatFormat
 from furchain.text.chat_message_history import MongoDBChatMessageHistory, logger
-from furchain.text.template_parsers import ChatFormat
+from furchain.text.chat_prompt_templates import ROLEPLAY_CHAT_PROMPT_TEMPLATE, NORMAL_CHAT_PROMPT_TEMPLATE
 
 CLASS_DICT = {
     'HumanMessagePromptTemplate': HumanMessagePromptTemplate,
@@ -46,7 +49,11 @@ class Scenario(BaseModel):
 
     @classmethod
     def from_openai(cls, description: str):
-        return CreateLoboScenario.chain.invoke(description)
+        return CreateLoboScenarioByOpenAI.chain.invoke(description)
+
+    @classmethod
+    def from_chat(cls, description: str, api=None, chat_format=ChatFormat.ExtendedAlpaca):
+        return CreateLoboScenarioByChat.create(description, api, chat_format)
 
     @classmethod
     def from_mongo(cls, scenario_name: str, mongo_url: str = None, mongo_db: str = None, mongo_collection: str = None):
@@ -140,7 +147,11 @@ class Character(BaseModel):
 
     @classmethod
     def from_openai(cls, description):
-        return CreateLoboCharacter.chain.invoke(description)
+        return CreateLoboCharacterByOpenAI.chain.invoke(description)
+
+    @classmethod
+    def from_chat(cls, description, api=None, chat_format=ChatFormat.ExtendedAlpaca):
+        return CreateLoboCharacterByChat.create(description, api, chat_format)
 
     @classmethod
     def from_mongo(cls, character_name: str, mongo_url: str = None, mongo_db: str = None, mongo_collection: str = None):
@@ -200,28 +211,35 @@ class Character(BaseModel):
 
 
 class LLM:
-    def __new__(cls, api_base,
+    def __new__(cls, api, chat_format: str | ChatFormat = ChatFormat.ExtendedAlpaca,
                 **kwargs) -> Runnable:
+        if isinstance(chat_format, ChatFormat):
+            chat_format = chat_format.value
+        model_kwargs = kwargs.pop("model_kwargs", {})
+        extra_query = model_kwargs.get("extra_query", {})
+        extra_query["chat_format"] = chat_format
+        model_kwargs["extra_query"] = extra_query
         llm = OpenAI(
-            openai_api_base=api_base,
+            openai_api_base=api,
             openai_api_key='none',
+            model_kwargs=model_kwargs,
             **kwargs
         )
         return llm
 
 
 class ChatLLM:
-    def __new__(cls, api_base,
+    def __new__(cls, api,
                 **kwargs) -> Runnable:
         llm = ChatOpenAI(
-            openai_api_base=api_base,
+            openai_api_base=api,
             openai_api_key='none',
             **kwargs
         )
         return llm
 
 
-class CreateLoboCharacter:
+class CreateLoboCharacterByOpenAI:
     llm = ChatOpenAI(model_name='gpt-3.5-turbo-1106')
     prompt_template = ChatPromptTemplate.from_messages([
         SystemMessagePromptTemplate.from_template("""Create a character sheet in JSON object based on given description. 
@@ -246,10 +264,10 @@ class CreateLoboCharacter:
     )
 
 
-class CreateLoboScenario:
+class CreateLoboScenarioByOpenAI:
     llm = ChatOpenAI(model_name='gpt-3.5-turbo-1106')
     prompt_template = ChatPromptTemplate.from_messages([
-        HumanMessagePromptTemplate.from_template("""Create a scenario in JSON object based on given description.
+        SystemMessagePromptTemplate.from_template("""Create a scenario in JSON object based on given description.
 {format_instructions}
 
 **Note:**
@@ -279,23 +297,41 @@ class CreateLoboScenario:
 
 class Chat(Runnable):
 
-    def __init__(self, llm: LLM | Runnable, chat_prompt_template: ChatPromptTemplate,
-                 template_parser: ChatFormat, npc: Character = None, scenario: Scenario = None,
+    def __init__(self, api: str = None, chat_format: str | ChatFormat = None,
+                 chat_prompt_template: ChatPromptTemplate = None,
+                 npc: Character = None,
+                 scenario: Scenario = None,
                  player: Character = None,
                  session_id: str = None,
-                 response_prefix: str = None):
+                 response_prefix: str = '',
+                 grammar: str = None,
+                 **kwargs):
         super().__init__()
+        if chat_format is None:
+            chat_format = ChatFormat.ExtendedAlpaca
         self.npc = npc if npc is not None else Character(character_name=TextConfig.get_npc_name(),
                                                          persona=TextConfig.get_npc_persona())
-        self.llm = llm.bind(stop=template_parser.stop + llm.__dict__['model_kwargs'].get('stop', []))
+
+        llm: OpenAI = LLM(api=api if api is not None else TextConfig.get_llm_api(), chat_format=chat_format, **kwargs)
+        if grammar:
+            extra_body = llm.model_kwargs.get('extra_body', {})
+            extra_body['grammar'] = grammar
+            llm.model_kwargs['extra_body'] = extra_body
+        chat_format_parser = chat_format.parser if isinstance(chat_format, ChatFormat) else ChatFormat(
+            chat_format).parser
+        stop = llm.model_kwargs['extra_query'].get('stop', []) + chat_format_parser.stop
+
+        self.llm = llm.bind(stop=stop)
+        self.chat_format_parser = chat_format_parser
         self.player = player if player is not None else Character(character_name=TextConfig.get_player_name(),
                                                                   persona=TextConfig.get_player_persona())
         self.scenario = scenario if scenario is not None else Scenario(scenario_name="default",
                                                                        scenario_description=TextConfig.get_scenario_description())
-        self.session_id = session_id if session_id is not None else self.npc.character_name
-        self.response_prefix = response_prefix if response_prefix else self.npc.character_name + ':'
-        self.chat_prompt_template = chat_prompt_template
-        self.template_parser = template_parser
+        self.session_id = session_id if session_id is not None else uuid.uuid4().__str__()
+        self.response_prefix = response_prefix
+        self.chat_prompt_template = chat_prompt_template if chat_prompt_template is not None else ROLEPLAY_CHAT_PROMPT_TEMPLATE
+        self.grammar = grammar
+
 
     def create_room(self, initial_message: str):
         scenario = self.scenario.copy()
@@ -306,8 +342,8 @@ class Chat(Runnable):
             player=self.npc,
             llm=self.llm,
             chat_prompt_template=self.chat_prompt_template,
-            template_parser=self.template_parser,
-            session_id=self.session_id + '_agent',
+            chat_format_parser=self.chat_format_parser,
+            session_id=(self.session_id + '_agent') if self.session_id else None,
             scenario=scenario,
         )
         player_message = initial_message
@@ -316,12 +352,16 @@ class Chat(Runnable):
             nonlocal player_message
             while True:
                 chat = self.stream(player_message)
-                npc_message = chat.content
-                yield from chat
+                npc_message = ''
+                for i in chat:
+                    npc_message += i
+                    yield i
                 yield None
                 chat = agent.stream(npc_message.lstrip(agent.player.character_name + ': '))
-                player_message = chat.content
-                yield from chat
+                player_message = ''
+                for i in chat:
+                    player_message += i
+                    yield i
                 yield None
 
         yield from _run()
@@ -348,7 +388,7 @@ class Chat(Runnable):
                     self.chat_prompt_template.format_prompt(chat_history=messages_from_dict(x.pop('chat_history', [])),
                                                             **x)
                 ))
-                | RunnableLambda(self.template_parser.parse)
+                | RunnableLambda(self.chat_format_parser.parse)
                 | RunnableLambda(lambda x: (logger.debug("Prompt: " + x + response_prefix), x + response_prefix)[1])
                 | self.llm
         )
@@ -394,36 +434,121 @@ class Chat(Runnable):
     def invoke(
             self, input: dict | str, config: Optional[RunnableConfig] = None, **kwargs: Any
     ) -> Output:
-        chat = self.stream(input, config, **kwargs)
-        for _ in chat:
-            pass
-        return chat.content
+        stream = self.stream(input, config, **kwargs)
+        result = ''
+        for i in stream:
+            result += i
+        return result
 
     def stream(
             self,
             input: dict | str,
             config: Optional[RunnableConfig] = None,
             **kwargs: Any
-    ) -> StrChunkCallbackIterator:
+    ) -> Iterable[Output]:
         params = {}
         if isinstance(input, str):
             input = {'query': input}
         params.update(input)
         params.update(kwargs)
-
         chain, params, _update_chat_history = self._get_chain_params(**params)
         stream = chain.stream(params, config)
         logger.debug(f"stream input: {params}")
-        return StrChunkCallbackIterator(
+        yield from StrChunkCallbackIterator(
             iterable=stream,
             callbacks=[_update_chat_history],
             response_prefix=params['response_prefix'],
         )
+        yield ''
+
+
+class CreateLoboScenarioByChat:
+    format_instructions = PydanticOutputParser(pydantic_object=Scenario).get_format_instructions()
+    prompt_template = ChatPromptTemplate.from_messages([
+        HumanMessage(content="""a scenario in intimacy"""),
+        AIMessage(
+            content="""{"scenario_name":"Beneath the Starlit Sky","scenario_description":"As the din of conflict fades into the silence of the night, {player_name} and {npc_name} find themselves sharing a serene moment beneath the vast, starlit sky. The scars of battle lay forgotten as they exchange stories of their pasts and hopes for the future. In the quiet of the night, with the gentle crackle of the campfire and the soft murmur of the forest around them, they forge a bond that transcends the chaos of their lives."}"""),
+        HumanMessage(content="""the player accidentally come to the world of npc and meet the npc""")])
+    player = Character(
+        character_name="User",
+        persona="Need help.",
+    )
+    npc = Character(
+        character_name="Professional Creator",
+        persona="Creative and accurate."
+    )
+    scenario = Scenario(
+        scenario_name="default",
+        scenario_description=f"""User is asking Professional Creator to create a scenario in JSON format based on descriptions. 
+{format_instructions}
+**Note:**
+- Choose a suitable name for the scenario based on the description
+- Example chat history should fit the scenario
+- `input_variables` only accepts `npc_name` and `player_name`""".replace("{", '{{').replace("}", "}}"),
+        example_chat_history_template=prompt_template
+    )
+
+    class _Scenario(BaseModel):
+        scenario_name: str
+        scenario_description: str
+
+    @classmethod
+    def create(cls, description, api=None, chat_format=ChatFormat.ExtendedAlpaca):
+        chat = Chat(
+            api=api,
+            chat_format=chat_format,
+            npc=cls.npc,
+            player=cls.player,
+            scenario=cls.scenario,
+            chat_prompt_template=NORMAL_CHAT_PROMPT_TEMPLATE,
+            grammar=json_schema_to_gbnf(cls._Scenario.schema_json()),
+            response_prefix=''
+        )
+        result = chat.invoke(description)
+        return Scenario(**json.loads(result))
+
+
+class CreateLoboCharacterByChat:
+    format_instructions = PydanticOutputParser(pydantic_object=Character).get_format_instructions()
+    prompt_template = ChatPromptTemplate.from_messages([HumanMessage(content="""a furry character"""),
+                                                        AIMessage(
+                                                            content="""{"character_name":"Seraphina Pawsley","persona":"Seraphina Pawsley, a spirited anthropomorphic red panda, stands at the intersection of human intelligence and the agility of the wild. With a lush coat patterned with fiery hues and cream, she's a vibrant spirit who combines her innate climbing skills with a knack for mechanical invention. Her eyes, a deep emerald, gleam with curiosity and a playful wisdom. She's a master tinkerer, often seen with a tool belt and goggles, ready to leap into adventure or repair a steam-powered contraption in the bustling city of Gearford. Despite her small stature, she's a fierce ally, using her sharp wit and acrobatic prowess to navigate through the urban jungle. Her fluffy ringed tail is not only a symbol of her heritage but serves as a balance aid when she's leaping from rooftop to rooftop, chasing down the latest mystery or invention that's caught her keen eye."}""")])
+    player = Character(
+        character_name="User",
+        persona="Need help.",
+    )
+    npc = Character(
+        character_name="Professional Creator",
+        persona="Creative and accurate."
+    )
+    scenario = Scenario(
+        scenario_name="default",
+        scenario_description=f"""User is asking Professional Creator to generate a character sheet in JSON format based on descriptions. 
+{format_instructions}""".replace("{", '{{').replace("}", "}}"),
+        example_chat_history_template=prompt_template
+    )
+
+    class _Character(BaseModel):
+        character_name: str
+        persona: str
+
+    @classmethod
+    def create(cls, description, api=None, chat_format=ChatFormat.ExtendedAlpaca):
+        chat = Chat(
+            api=api,
+            chat_format=chat_format,
+            npc=cls.npc,
+            player=cls.player,
+            scenario=cls.scenario,
+            chat_prompt_template=NORMAL_CHAT_PROMPT_TEMPLATE,
+            grammar=json_schema_to_gbnf(cls._Character.schema_json()),
+            response_prefix=''
+        )
+        result = chat.invoke(description)
+        return Character(**json.loads(result))
 
 
 __all__ = [
-    "LLM",
-    "ChatLLM",
     "Chat",
     "Character",
     "Scenario"

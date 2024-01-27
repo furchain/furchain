@@ -9,13 +9,13 @@ class RVC(ParrotVC):
     
     default_speaker = "klee-jp"
 
-    def __init__(self, api_base: str = None, **kwargs):
+    def __init__(self, api: str = None, **kwargs):
         super().__init__(**kwargs)
-        if api_base is None:
-            api_base = AudioConfig.get_rvc_api()
-        self.api_base = api_base
+        if api is None:
+            api = AudioConfig.get_rvc_api()
+        self.api = api
 
-    def run(self, flac_bytes: bytes, speaker: str = "klee-jp", index_path: str = None, f0up_key: int = 0,
+    def run(self, audio_bytes: bytes, speaker: str = "klee-jp", index_path: str = None, f0up_key: int = 0,
             f0method: str = "rmvpe", index_rate: float = 0.66, device: str = None,
             is_half: bool = False, filter_radius: int = 3, resample_sr: int = 0,
             rms_mix_rate: float = 1, protect: float = 0.33, response_format='wav') -> bytes:
@@ -34,10 +34,10 @@ class RVC(ParrotVC):
             "response_format": response_format,
         }
         files = {
-            "input_file": flac_bytes,
+            "input_file": audio_bytes,
         }
 
-        response = requests.post(self.api_base, params=data, files=files)
+        response = requests.post(self.api, params=data, files=files)
         return response.content
 
 

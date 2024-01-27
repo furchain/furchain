@@ -2,25 +2,6 @@ from typing import Optional, Any, Callable
 
 from langchain_core.output_parsers import BaseCumulativeTransformOutputParser
 from langchain_core.output_parsers.base import T
-from translate import Translator
-
-
-class ChineseTranslateStreamOutputParser(BaseCumulativeTransformOutputParser):
-    diff = True
-
-    def _diff(self, prev: Optional[T], next: T) -> T:
-        if prev:
-            sentence = next.removeprefix(prev)
-        else:
-            sentence = next
-        translated_sentence = Translator(to_lang='zh-cn').translate(sentence)
-        return translated_sentence
-
-    def parse(self, text: str) -> T:
-        return text
-
-    def get_format_instructions(self) -> str:
-        return ''
 
 
 class CustomStreamOutputParser(BaseCumulativeTransformOutputParser):
@@ -48,15 +29,14 @@ class CustomStreamOutputParser(BaseCumulativeTransformOutputParser):
 class SentenceStreamOutputParser(BaseCumulativeTransformOutputParser):
     diff = True
     splits = ('\n', '. ', '! ', '? ', '* ', '。', '？', '！')
-    truncate_prefix = '### Response: '
-    truncate_suffix = '</s>'
     min_length = 10
     done_sentence = ''
     current_sentence = ''
 
     def _diff(self, prev: Optional[Any], next: Any) -> Any:
         if next == '':
-            last_sentence = self.current_sentence.removeprefix(self.truncate_prefix).removesuffix(self.truncate_suffix)
+            last_sentence = self.current_sentence
+            self.current_sentence = ''
             return last_sentence
         for s in self.splits:
             if s in self.current_sentence:
@@ -65,7 +45,7 @@ class SentenceStreamOutputParser(BaseCumulativeTransformOutputParser):
                     continue
                 sentence += s
                 self.done_sentence += sentence
-                result = sentence.removeprefix(self.truncate_prefix).removesuffix(self.truncate_suffix)
+                result = sentence
                 return result
         return ''
 

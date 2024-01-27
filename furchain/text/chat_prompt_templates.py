@@ -2,6 +2,18 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_core.prompts import SystemMessagePromptTemplate, MessagesPlaceholder, HumanMessagePromptTemplate, \
     ChatPromptTemplate
 
+NORMAL_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""{npc_name}'s Persona: {npc_persona}
+
+{player_name}'s Persona: {player_persona}
+
+Scenario: {scenario_description}"""),
+                                                                MessagesPlaceholder(
+                                                                    variable_name='example_chat_history'),
+                                                                MessagesPlaceholder(variable_name='chat_history'),
+                                                                HumanMessagePromptTemplate.from_template(
+                                                                    """{player_name}: {query}""")])
+
+
 ROLEPLAY_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""{npc_name}'s Persona: {npc_persona}
 
 {player_name}'s Persona: {player_persona}

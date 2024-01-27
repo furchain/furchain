@@ -7,9 +7,9 @@ from typing import Literal, Iterable, Optional, Any, Iterator, Callable
 
 import websocket
 import websockets
-from langchain_core.runnables import RunnableConfig
-from langchain_core.runnables.utils import Output
+from langchain_core.runnables.utils import Output, Input
 
+from furchain.audio.schema import ParrotSTT
 from furchain.logger import logger
 from furchain.utils.iterator import BufferIterator
 
@@ -75,9 +75,7 @@ class FunASRSession:
                 await self.websocket.send(chunk)
                 await asyncio.sleep(0.005)
         except Exception as e:
-            # When done sending, cancel the receive task
             logger.exception(e)
-            # await handler(e)
             raise e
         finally:
             try:
@@ -141,15 +139,14 @@ class FunASRSession:
                         logger.exception(e)
                         try:
                             self.websocket.send(END_MESSAGE)
-                        except:
+                        except (websocket.WebSocketConnectionClosedException, AttributeError):
                             pass
                         self.close()
                         return
                     if message.get('is_final'):
                         break
-            except websocket.WebSocketConnectionClosedException:
+            except (websocket.WebSocketConnectionClosedException, AttributeError):
                 pass
-
 
         # Start receiving messages in a separate thread
         receive_thread = threading.Thread(target=receive_messages, args=(handler,))
@@ -159,13 +156,20 @@ class FunASRSession:
             for chunk in audio_stream:
                 self.websocket.send(chunk, opcode=websocket.ABNF.OPCODE_BINARY)
                 # No sleep needed here, as this is a synchronous/blocking call
-            self.websocket.send(END_MESSAGE)
+        except (AttributeError,
+                websocket.WebSocketConnectionClosedException):  # websocket is None (closed), no need to raise exception
+            pass
+
         except Exception as e:
             self.close()
             logger.exception(e)
             # handler(e)
             raise e
         finally:
+            try:
+                self.websocket.send(END_MESSAGE)
+            except (websocket.WebSocketConnectionClosedException, AttributeError):
+                pass
             receive_thread.join()
 
     def close(self):
@@ -174,25 +178,41 @@ class FunASRSession:
             self.websocket = None
 
 
-class FunASR:
+class FunASR(ParrotSTT):
+
+    def __init__(self, api: str = None, **kwargs):
+        super().__init__(**kwargs)
+        self._default_kwargs = kwargs
+
+    def invoke(self, input: Input, **kwargs) -> Output:
+        if not isinstance(input, bytes):
+            input = b''.join(input)
+        for i in self.stream(input, **kwargs):
+            return i
 
     def stream(
             self,
             input: Iterable,
-            config: Optional[RunnableConfig] = None,
             **kwargs: Optional[Any],
     ) -> Iterator[Output]:
+        if isinstance(input, bytes):
+            def _input(x):
+                yield x
+
+            input = _input(input)
+
+        # online model
         iterator = BufferIterator()
 
         def _response_handler(message):
             try:
-                iterator.put(message['text'])
+                iterator.put(message)
                 if message.get('is_final'):
                     iterator.terminate()
-            except:
+            except Exception:
                 iterator.terminate()
 
-        session = FunASRSession(**kwargs)
+        session = FunASRSession(**self._default_kwargs, **kwargs)
 
         def _stream():
             try:
@@ -207,9 +227,7 @@ class FunASR:
             session.connect()
             stream_thread.start()
             yield from iterator
-        except Exception as e:
-            session.close()
-            raise e
         finally:
             session.close()
-            stream_thread.join()
+            if stream_thread.is_alive():
+                stream_thread.join()

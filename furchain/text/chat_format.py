@@ -1,10 +1,11 @@
 import abc
+import enum
 
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_core.prompt_values import ChatPromptValue
 
 
-class ChatFormat(metaclass=abc.ABCMeta):
+class ChatFormatParser(metaclass=abc.ABCMeta):
     stop: list = list()
 
     @abc.abstractmethod
@@ -12,7 +13,7 @@ class ChatFormat(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
 
-class AlpacaChatFormat(ChatFormat):
+class AlpacaChatFormatParser(ChatFormatParser):
     _sep = "\n\n"
     _sep2 = "</s>"
     _human_prefix = "### Instruction:\n"
@@ -38,7 +39,7 @@ class AlpacaChatFormat(ChatFormat):
         return prompt.rstrip()
 
 
-class ExtendedAlpacaChatFormat(ChatFormat):
+class ExtendedAlpacaChatFormatParser(ChatFormatParser):
     _sep = '\n\n'
     _human_prefix = '### Input:\n'
     _ai_prefix = '### Response:\n'
@@ -62,7 +63,7 @@ class ExtendedAlpacaChatFormat(ChatFormat):
         return prompt.rstrip()
 
 
-class LimaRPExtendedAlpacaChatFormat(ExtendedAlpacaChatFormat):
+class LimaRPExtendedAlpacaChatFormatParser(ExtendedAlpacaChatFormatParser):
 
     def __init__(self, length: str = 'medium'):
         super().__init__()
@@ -74,7 +75,7 @@ class LimaRPExtendedAlpacaChatFormat(ExtendedAlpacaChatFormat):
         return prompt
 
 
-class ChatMLChatFormat(ChatFormat):
+class ChatMLChatFormatParser(ChatFormatParser):
     _sep = "<|im_end|>"
     _human_prefix = "<|im_start|>user"
     _ai_prefix = "<|im_start|>assistant"
@@ -96,3 +97,23 @@ class ChatMLChatFormat(ChatFormat):
                 prompt += self._ai_prefix + i.content + self._sep
         prompt += self._ai_prefix  # + response_prefix
         return prompt.rstrip()
+
+
+class ChatFormat(enum.Enum):
+    Alpaca = 'Alpaca'
+    ExtendedAlpaca = 'ExtendedAlpaca'
+    LimaRPExtendedAlpaca = 'LimaRPExtendedAlpaca'
+    ChatML = 'ChatML'
+
+    @property
+    def parser(self) -> ChatFormatParser:
+        if self == ChatFormat.Alpaca:
+            return AlpacaChatFormatParser()
+        elif self == ChatFormat.ExtendedAlpaca:
+            return ExtendedAlpacaChatFormatParser()
+        elif self == ChatFormat.LimaRPExtendedAlpaca:
+            return LimaRPExtendedAlpacaChatFormatParser()
+        elif self == ChatFormat.ChatML:
+            return ChatMLChatFormatParser()
+        else:
+            raise NotImplementedError

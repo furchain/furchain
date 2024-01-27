@@ -7,7 +7,7 @@ from furchain.logger import logger
 
 
 class ParrotTTS(Runnable, metaclass=abc.ABCMeta):
-    default_speaker: str = None
+    default_speaker: str
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -33,7 +33,7 @@ class ParrotTTS(Runnable, metaclass=abc.ABCMeta):
 
 
 class ParrotVC(Runnable, metaclass=abc.ABCMeta):
-    default_speaker: str = None
+    default_speaker: str
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -44,7 +44,7 @@ class ParrotVC(Runnable, metaclass=abc.ABCMeta):
 
     @classmethod
     @abc.abstractmethod
-    def run(cls, flac_bytes: bytes, *args, **kwargs) -> bytes:
+    def run(cls, audio_bytes: bytes, *args, **kwargs) -> bytes:
         raise NotImplementedError
 
     def invoke(
@@ -54,5 +54,11 @@ class ParrotVC(Runnable, metaclass=abc.ABCMeta):
         params.update(kwargs)
         logger.debug(f"{params=}")
         if isinstance(input, bytes):
-            input = {'flac_bytes': input}
+            input = {'audio_bytes': input}
         return self.run(**params, **input)
+
+
+class ParrotSTT(Runnable, metaclass=abc.ABCMeta):
+    def __init__(self, **kwargs):
+        super().__init__()
+        self._default_kwargs = kwargs

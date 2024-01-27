@@ -9,13 +9,13 @@ class Sovits(ParrotVC):
 
     default_speaker = "nahida"
 
-    def __init__(self, api_base: str = None, **kwargs):
+    def __init__(self, api: str = None, **kwargs):
         super().__init__(**kwargs)
-        if api_base is None:
-            api_base = AudioConfig.get_sovits_api()
-        self.api_base = api_base
+        if api is None:
+            api = AudioConfig.get_sovits_api()
+        self.api = api
 
-    def run(self, flac_bytes: bytes, pitch: int = 0, speaker: str = 'nahida',
+    def run(self, audio_bytes: bytes, pitch: int = 0, speaker: str = 'nahida',
             auto_f0: bool = False, response_format='flac') -> bytes:
         data = {
             "pitch": pitch,
@@ -24,8 +24,8 @@ class Sovits(ParrotVC):
             "response_format": response_format,
         }
         files = {
-            "sample": flac_bytes,
+            "sample": audio_bytes,
         }
 
-        response = requests.post(self.api_base, data=data, files=files)
+        response = requests.post(self.api, data=data, files=files)
         return response.content
