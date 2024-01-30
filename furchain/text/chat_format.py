@@ -36,7 +36,7 @@ class AlpacaChatFormatParser(ChatFormatParser):
             elif isinstance(i, AIMessage):
                 prompt += cls._ai_prefix + i.content + seps[idx % 2]
         prompt += cls._ai_prefix  # + response_prefix
-        return prompt.rstrip()
+        return prompt
 
 
 class ExtendedAlpacaChatFormatParser(ChatFormatParser):
@@ -60,7 +60,7 @@ class ExtendedAlpacaChatFormatParser(ChatFormatParser):
             elif isinstance(i, AIMessage):
                 prompt += cls._ai_prefix + i.content + cls._sep
         prompt += cls._ai_prefix  # .replace('\n', " (length = medium)\n") + response_prefix
-        return prompt.rstrip()
+        return prompt
 
 
 class LimaRPExtendedAlpacaChatFormatParser(ExtendedAlpacaChatFormatParser):
@@ -96,7 +96,7 @@ class ChatMLChatFormatParser(ChatFormatParser):
             elif isinstance(i, AIMessage):
                 prompt += self._ai_prefix + i.content + self._sep
         prompt += self._ai_prefix  # + response_prefix
-        return prompt.rstrip()
+        return prompt
 
 
 class ChatFormat(enum.Enum):
