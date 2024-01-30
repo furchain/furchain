@@ -309,6 +309,9 @@ class Chat(Runnable):
         super().__init__()
         if chat_format is None:
             chat_format = ChatFormat.ExtendedAlpaca
+        self.chat_format = chat_format
+        self.api = api
+        self.kwargs = kwargs
         self.npc = npc if npc is not None else Character(character_name=TextConfig.get_npc_name(),
                                                          persona=TextConfig.get_npc_persona())
 
@@ -319,6 +322,7 @@ class Chat(Runnable):
             llm.model_kwargs['extra_body'] = extra_body
         chat_format_parser = chat_format.parser if isinstance(chat_format, ChatFormat) else ChatFormat(
             chat_format).parser
+        llm.model_kwargs.update(kwargs.get("model_kwargs", {}))
         stop = llm.model_kwargs['extra_query'].get('stop', []) + chat_format_parser.stop
 
         self.llm = llm.bind(stop=stop)
@@ -338,13 +342,13 @@ class Chat(Runnable):
         if scenario.example_chat_history_template.messages:
             scenario.example_chat_history_template.messages.pop()
         agent = Chat(
+            api=self.api,
+            chat_format=self.chat_format,
             npc=self.player,
             player=self.npc,
-            llm=self.llm,
-            chat_prompt_template=self.chat_prompt_template,
-            chat_format_parser=self.chat_format_parser,
             session_id=(self.session_id + '_agent') if self.session_id else None,
             scenario=scenario,
+            **self.kwargs
         )
         player_message = initial_message
 
