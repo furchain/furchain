@@ -10,6 +10,7 @@ import websockets
 from langchain_core.runnables.utils import Output, Input
 
 from furchain.audio.schema import ParrotSTT
+from furchain.config import AudioConfig
 from furchain.logger import logger
 from furchain.utils.iterator import BufferIterator
 
@@ -181,6 +182,9 @@ class FunASRSession:
 class FunASR(ParrotSTT):
 
     def __init__(self, api: str = None, **kwargs):
+        if api is None:
+            api = AudioConfig.get_funasr_api()
+        kwargs["api"] = api
         super().__init__(**kwargs)
         self._default_kwargs = kwargs
 
@@ -201,7 +205,6 @@ class FunASR(ParrotSTT):
 
             input = _input(input)
 
-        # online model
         iterator = BufferIterator()
 
         def _response_handler(message):
