@@ -24,8 +24,8 @@ class TextConfig:
         return os.environ['FURCHAIN_TEXT_MONGO_SCENARIO_COLLECTION']
 
     @staticmethod
-    def get_llm_api():
-        return os.environ['FURCHAIN_TEXT_LLM_API']
+    def get_llama_cpp_api_base():
+        return os.environ['FURCHAIN_TEXT_LLAMA_CPP_API_BASE']
 
     @staticmethod
     def get_player_name():
