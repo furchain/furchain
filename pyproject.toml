@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "furchain"
+version = "0.1.0"
+description = ""
+authors = ["markyfsun <mark@furchain.xyz>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+websocket-client = "^1.7.0"
+pydantic = "^2.5.3"
+pydub = "^0.25.1"
+soundfile = "^0.12.1"
+requests = "^2.31.0"
+sympy = "^1.12"
+audio-separator = { extras = ["gpu"], version = "^0.13.0" }
+langchain-core = "^0.1.16"
+langchain-community = "^0.0.16"
+openai = "^1.10.0"
+ffmpeg-python = "^0.2.0"
+langchain = "^0.1.4"
+pymongo = "^4.6.1"
+llama-cpp-python = "^0.2.33"
+python-dotenv = "^1.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
