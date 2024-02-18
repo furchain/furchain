@@ -3,6 +3,7 @@ import json
 import ssl
 import threading
 import uuid
+import warnings
 from typing import Literal, Iterable, Optional, Any, Iterator, Callable
 
 import websocket
@@ -10,12 +11,12 @@ import websockets
 from langchain_core.runnables.utils import Output, Input
 
 from furchain.audio.schema import ParrotSTT
+from furchain.audio.utils.get_format import get_format_from_magic_bytes
 from furchain.config import AudioConfig
 from furchain.logger import logger
 from furchain.utils.iterator import BufferIterator
 
 END_MESSAGE = json.dumps({"is_speaking": False})
-
 
 class FunASRSession:
     """
@@ -191,8 +192,15 @@ class FunASR(ParrotSTT):
     def invoke(self, input: Input, **kwargs) -> Output:
         if not isinstance(input, bytes):
             input = b''.join(input)
+        result = ''
         for i in self.stream(input, **kwargs):
-            return i
+            result += i['text']
+        i['text'] = result
+        if result == '':
+            if audio_format := get_format_from_magic_bytes(input) != 'unknown':
+                warnings.warn(
+                    f"You need to convert `{audio_format}` into PCM format with `furchain.audio.utils.convert.convert_to_pcm`.")
+        return i
 
     def stream(
             self,

@@ -51,6 +51,10 @@ class TextConfig:
 class AudioConfig:
 
     @staticmethod
+    def get_gpt_sovits_api_base():
+        return os.environ['FURCHAIN_AUDIO_GPT_SOVITS_API_BASE']
+
+    @staticmethod
     def get_sovits_api():
         return os.environ['FURCHAIN_AUDIO_SOVITS_API']
 

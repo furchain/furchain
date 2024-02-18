@@ -7,13 +7,9 @@ from furchain.logger import logger
 
 
 class ParrotTTS(Runnable, metaclass=abc.ABCMeta):
-    default_speaker: str
 
     def __init__(self, **kwargs):
         super().__init__()
-        kwargs.update({
-            'speaker': kwargs.get('speaker', self.default_speaker)
-        })
         self._default_kwargs = kwargs
 
     @classmethod
@@ -33,13 +29,9 @@ class ParrotTTS(Runnable, metaclass=abc.ABCMeta):
 
 
 class ParrotVC(Runnable, metaclass=abc.ABCMeta):
-    default_speaker: str
 
     def __init__(self, **kwargs):
         super().__init__()
-        kwargs.update({
-            'speaker': kwargs.get('speaker', self.default_speaker)
-        })
         self._default_kwargs = kwargs
 
     @classmethod

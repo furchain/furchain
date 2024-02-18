@@ -1,6 +1,3 @@
-from furchain.logger import logger
-
-
 def get_format_from_magic_bytes(audio_bytes: bytes) -> str:
     if audio_bytes.startswith(b'\xFF\xFB'):
         return 'mp3'
@@ -16,5 +13,4 @@ def get_format_from_magic_bytes(audio_bytes: bytes) -> str:
     elif audio_bytes.startswith(b'\xFF') and (audio_bytes[1] & 0xF6) == 0xF0:
         return 'aac'
     else:
-        logger.warning('Unknown audio format based on magic bytes, attempting to guess format')
         return 'unknown'  # We'll attempt to guess the format later
