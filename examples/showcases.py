@@ -21,17 +21,17 @@ from huggingface_hub import hf_hub_download
 REPO_ID = "TheBloke/Nous-Hermes-Llama2-GGUF"
 FILENAME = "nous-hermes-llama2-13b.Q4_K_M.gguf"
 print_color(f"Downloading {FILENAME}, it may take a while...", Colors.CYAN)
-hf_hub_download(repo_id=REPO_ID, filename=FILENAME, local_dir="./data/llama-cpp", local_dir_use_symlinks=False)
+hf_hub_download(repo_id=REPO_ID, filename=FILENAME, local_dir="../data/llama-cpp", local_dir_use_symlinks=False)
 
 # Download reference audio
 import requests
 
-with open("./data/gpt-sovits/reference.wav", "wb") as f:
+with open("../data/gpt-sovits/reference.wav", "wb") as f:
     f.write(requests.get(
         "https://huggingface.co/spaces/XzJosh/badXT-GPT-SoVITS/resolve/main/audio/Taffy/Taffy_100.wav").content)
 
 # Play audio bytes
-with open("./data/gpt-sovits/reference.wav", 'rb') as f:
+with open("../data/gpt-sovits/reference.wav", 'rb') as f:
     audio_bytes = f.read()
 from furchain.audio.utils.play import play_audio_bytes
 
@@ -54,9 +54,9 @@ print_color("Ask LLM to calculate 1+1", Colors.CYAN)
 print_color(chat.invoke("calculate 1+1"), Colors.GREEN)
 
 # Roleplay
-player = Character.from_file("presets/characters/Dash Howler.json")
-npc = Character.from_file("presets/characters/Zane Ryder.json")
-scenario = Scenario.from_file("presets/scenarios/Beneath the Starlit Sky.json")
+player = Character.from_file("../presets/characters/Dash Howler.json")
+npc = Character.from_file("../presets/characters/Zane Ryder.json")
+scenario = Scenario.from_file("../presets/scenarios/Beneath the Starlit Sky.json")
 chat = Chat(llm=llm, player=player, npc=npc, scenario=scenario)
 print_color("Engage into a roleplay game, ask for npc's plan for the night. Non-stream.", Colors.CYAN)
 text_stream = chat.stream("What's your plan for the night?")
@@ -85,7 +85,8 @@ from furchain.text.output_parsers import SentenceStreamOutputParser
 
 print_color("Ask npc about his plan for tomorrow", Colors.CYAN)
 sentence_stream = (chat | SentenceStreamOutputParser()).stream("What's your plan for tomorrow?")
-sentence_iterator, audio_iterator = iterator_callback_broadcaster(sentence_stream, [lambda x: x,
+sentence_iterator, audio_iterator = iterator_callback_broadcaster(sentence_stream, [
+    lambda x: print_color(x, Colors.GREEN) if x else None,
                                                                                     lambda x: gpt_sovits.invoke(
                                                                                         {"text": x,
                                                                                          "text_language": "en"}) if x else None])
@@ -101,16 +102,16 @@ print()
 # Microphone input
 from furchain.audio.utils.microphone import MicrophoneStream
 
-microphone_stream = MicrophoneStream()
 query = ''
 print_color("Continue this conversation by speaking with your microphone. Say `over` or `结束` to send the message.",
             Colors.RED)
-for i in FunASR().stream(microphone_stream):
-    query += i['text']
-    print_color(i, Colors.YELLOW)
-    if "over" in i['text'] or "结束" in i['text']:
-        query.replace("over", '').replace("结束", '')
-        break
+with MicrophoneStream() as microphone_stream:
+    for i in FunASR(mode='2pass').stream(microphone_stream):
+        query += i['text']
+        print_color(i, Colors.YELLOW)
+        if "over" in i['text'] or "结束" in i['text']:
+            query.replace("over", '').replace("结束", '')
+            break
 
 sentence_stream = (chat | SentenceStreamOutputParser()).stream(query)
 sentence_iterator, audio_iterator = iterator_callback_broadcaster(sentence_stream, [lambda x: x,

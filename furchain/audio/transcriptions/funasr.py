@@ -187,12 +187,12 @@ class FunASR(ParrotSTT):
             api = AudioConfig.get_funasr_api()
         kwargs["api"] = api
         super().__init__(**kwargs)
-        self._default_kwargs = kwargs
 
     def invoke(self, input: Input, **kwargs) -> Output:
         if not isinstance(input, bytes):
             input = b''.join(input)
         result = ''
+        kwargs['mode'] = 'offline'
         for i in self.stream(input, **kwargs):
             result += i['text']
         i['text'] = result

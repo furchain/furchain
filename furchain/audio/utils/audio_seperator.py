@@ -20,7 +20,7 @@ class AudioSeparator:
         audio_iterator (FlexibleAudioIterator): An instance of the FlexibleAudioIterator class used to iterate over the audio.
     """
 
-    def __init__(self, filename, chunk_duration=10, model_name="UVR-MDX-NET-Inst_HQ_3"):
+    def __init__(self, filename, chunk_duration=10, model_name="UVR-MDX-NET-Inst_HQ_3", flexible=True):
         """
         The constructor for the AudioSeparator class.
 
@@ -33,6 +33,7 @@ class AudioSeparator:
         self.separator = Separator()
         self.separator.load_model(model_name=model_name)
         self.audio_iterator = FlexibleAudioIterator(self.filename, self.chunk_duration)
+        self.flexible = flexible
 
     def __iter__(self):
         """
@@ -59,9 +60,10 @@ class AudioSeparator:
                 f.write(audio_chunk)
                 start_time = time.time()
                 primary_stem_path, secondary_stem_path = self.separator.separate(f.name)
-                separate_elapsed = time.time() - start_time
-                if self.chunk_duration < separate_elapsed:
-                    self.audio_iterator.set_chunk_duration(int(separate_elapsed) + 1)
+                if self.flexible:  # auto adjust chunk duration to provide seamless separation
+                    separate_elapsed = time.time() - start_time
+                    if self.chunk_duration < separate_elapsed:
+                        self.audio_iterator.set_chunk_duration(int(separate_elapsed) + 1)
                 with open(primary_stem_path, 'rb') as f:
                     vocal_audio = f.read()
                 with open(secondary_stem_path, 'rb') as f:

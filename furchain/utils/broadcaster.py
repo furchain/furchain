@@ -20,9 +20,9 @@ class FutureIter:
         return future.result()
 
 
-def iterator_callback_broadcaster(iterator, callbacks) -> List[Iterable]:
+def iterator_callback_broadcaster(iterator: Iterable, callbacks) -> List[Iterable]:
     """Broadcasts the elements of an iterator to multiple callback functions concurrently."""
-
+    iterator = iter(iterator)
     broadcast = {callback: [] for callback in callbacks}
     executor = concurrent.futures.ThreadPoolExecutor()
     lock = threading.Lock()

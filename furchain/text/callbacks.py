@@ -5,7 +5,7 @@ from furchain.logger import logger
 
 
 class StrChunkCallbackIterator:
-    def __init__(self, iterable, callbacks: List[Callable], response_prefix='', skip=('',)):
+    def __init__(self, iterable, callbacks: List[Callable], response_prefix='', skip=tuple()):
         self.iterable = iter(iterable)
         self.callbacks = callbacks
         self.content = ''
