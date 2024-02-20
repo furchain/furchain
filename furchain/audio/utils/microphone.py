@@ -33,15 +33,8 @@ class MicrophoneStream:
         Raises:
             ValueError: If both chunk_size and chunk_duration are set.
         """
-
-        # If both chunk_size and chunk_duration are set, raise an error
-        if chunk_size is not None and chunk_duration is not None:
-            raise ValueError("Both chunk_size and chunk_duration cannot be set")
-
-        # If chunk_duration is set, calculate chunk_size
-        if chunk_duration is None:
-            chunk_duration = 200
-        chunk_size = int(rate * chunk_duration / 1000)
+        if chunk_size is None:
+            chunk_size = int(rate * chunk_duration / 1000)
         self.chunk_size = chunk_size
         self.format = format
         self.channels = channels

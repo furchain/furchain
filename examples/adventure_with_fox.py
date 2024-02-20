@@ -1,17 +1,17 @@
-from furchain.text import Character, Scenario, Chat, Session, LlamaCpp
+from furchain.text import LoboCharacter, LoboScenario, LoboChat, LoboSession, LlamaCpp
 from furchain.text.chat_prompt_templates import ROLEPLAY_CHAT_PROMPT_TEMPLATE
 
 llm = LlamaCpp()
-player = Character.create("a normal fox", llm=llm)
-npc = Character.create("a fox with magic power", llm=llm)
-scenario = Scenario.create("adventure in the lost forest", llm=llm)
-session = Session(
+player = LoboCharacter.create("a normal fox", llm=llm)
+npc = LoboCharacter.create("a fox with magic power", llm=llm)
+scenario = LoboScenario.create("adventure in the lost forest", llm=llm)
+session = LoboSession(
     session_id="chat_with_fox",
     player=player,
     npc=npc,
     scenario=scenario
 )
-chat = Chat(
+chat = LoboChat(
     llm=llm,
     session=session,
     scenario=scenario,

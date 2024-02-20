@@ -44,7 +44,7 @@ def iterator_callback_broadcaster(iterator: Iterable, callbacks) -> List[Iterabl
             cache_value = e
         broadcast_cache(cache_value)
 
-    def call_cache_on_callback(callback):
+    def callback_on_cache(callback):
         """Calls callback with cache values until cache is empty."""
         while True:
             if not broadcast[callback]:
@@ -59,6 +59,6 @@ def iterator_callback_broadcaster(iterator: Iterable, callbacks) -> List[Iterabl
             callback_queues[callback].put(future)
 
     for callback in callbacks:
-        executor.submit(call_cache_on_callback, callback)
+        executor.submit(callback_on_cache, callback)
 
     return callback_iters
