@@ -50,41 +50,42 @@ def convert_to_mp3(audio_bytes: bytes, sample_rate: int = 16000) -> bytes:
     return mp3_data
 
 
-def create_ffmpeg_converter(format: Literal['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'], **kwargs):
+def convert(audio_bytes: bytes, format: Literal['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'] = 'wav', **kwargs):
     """
-    Creates a function that converts audio bytes to the specified format using ffmpeg.
-        format: The target audio format. ['mp4', 'avi', 'mkv', 'mov', 'flv', 'wmv', 'mp3', 'wav', 'flac', 'ogg']
-        codec: The target audio codec. ['libmp3lame', 'aac', 'libvorbis', 'libopus', 'pcm_s16le', 'flac']
-        ar: The target audio sample rate
+    Convert the input audio bytes to the specified format using ffmpeg.
+
+    Parameters:
+    audio_bytes (bytes): The input audio data as bytes.
+    format (str): The target format for the audio conversion. Supported formats are 'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'. Default is 'wav'.
+    **kwargs: Additional keyword arguments to be passed to the ffmpeg output function.
+
+    Returns:
+    bytes: The converted audio data as bytes.
     """
 
-    def convert_audio(audio_bytes):
-        # Create a temporary file for the original audio
-        with tempfile.NamedTemporaryFile(suffix='.input') as input_temp:
-            # Write the input audio bytes to the temporary file
-            input_temp.write(audio_bytes)
-            input_temp.flush()  # Ensure all data is written to disk
+    with tempfile.NamedTemporaryFile(suffix='.input') as input_temp:
+        # Write the input audio bytes to the temporary file
+        input_temp.write(audio_bytes)
+        input_temp.flush()  # Ensure all data is written to disk
 
-            # Create a temporary file for the output audio
-            output_filename = input_temp.name + f'.{format}'
+        # Create a temporary file for the output audio
+        output_filename = input_temp.name + f'.{format}'
 
-            # Use ffmpeg to convert the audio to the target format and sample rate
-            ffmpeg.input(input_temp.name).output(
-                output_filename,
-                format=format,
-                **kwargs
-            ).run(capture_stdout=True, capture_stderr=True)
+        # Use ffmpeg to convert the audio to the target format and sample rate
+        ffmpeg.input(input_temp.name).output(
+            output_filename,
+            format=format,
+            **kwargs
+        ).run(capture_stdout=True, capture_stderr=True)
 
-            # Read the converted audio bytes from the output temporary file
-            with open(output_filename, 'rb') as f:
-                output_audio_bytes = f.read()
+        # Read the converted audio bytes from the output temporary file
+        with open(output_filename, 'rb') as f:
+            output_audio_bytes = f.read()
 
-            # Clean up the output temporary file
-            try:
-                os.remove(output_filename)
-            except OSError:
-                pass
+        # Clean up the output temporary file
+        try:
+            os.remove(output_filename)
+        except OSError:
+            pass
 
-        return output_audio_bytes
-
-    return convert_audio
+    return output_audio_bytes

@@ -195,12 +195,11 @@ class FunASR(ParrotSTT):
         kwargs['mode'] = 'offline'
         for i in self.stream(input, **kwargs):
             result += i['text']
-        i['text'] = result
         if result == '':
             if audio_format := get_format_from_magic_bytes(input) != 'unknown':
                 warnings.warn(
                     f"You need to convert `{audio_format}` into PCM format with `furchain.audio.utils.convert.convert_to_pcm`.")
-        return i
+        return result
 
     def stream(
             self,

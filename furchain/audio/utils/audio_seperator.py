@@ -1,10 +1,8 @@
 import os
 import tempfile
 import time
-from io import BytesIO
 
 from audio_separator.separator import Separator
-from pydub import AudioSegment
 
 from furchain.audio.utils.audio_iter import FlexibleAudioIterator
 
@@ -65,35 +63,11 @@ class AudioSeparator:
                     if self.chunk_duration < separate_elapsed:
                         self.audio_iterator.set_chunk_duration(int(separate_elapsed) + 1)
                 with open(primary_stem_path, 'rb') as f:
-                    vocal_audio = f.read()
+                    vocal_wav = f.read()
                 with open(secondary_stem_path, 'rb') as f:
-                    instrumental_audio = f.read()
+                    instrumental_wav = f.read()
                 os.remove(primary_stem_path)
                 os.remove(secondary_stem_path)
-                return vocal_audio, instrumental_audio
+                return vocal_wav, instrumental_wav
 
         raise StopIteration
-
-    @staticmethod
-    def merge_audios(*audio_byte_streams, output_format='mp3'):
-        """
-        Merges multiple audio byte streams into one and outputs it in the specified format.
-
-        :param audio_byte_streams: List of audio byte stream arguments.
-        :param output_format: The desired output format (default is 'mp3').
-        :return: Byte stream of the merged audio in the specified format.
-        """
-        # Convert the first audio byte stream to an AudioSegment
-        combined = AudioSegment.from_file(BytesIO(audio_byte_streams[0]))
-
-        # Overlay the remaining audio byte streams onto the combined AudioSegment
-        for audio_bytes in audio_byte_streams[1:]:
-            audio_segment = AudioSegment.from_file(BytesIO(audio_bytes))
-            combined = combined.overlay(audio_segment)
-
-        # Export the combined AudioSegment to a byte stream in WAV format
-        # WAV is used as an intermediate format for compatibility
-        intermediate_byte_stream = BytesIO()
-        combined.export(intermediate_byte_stream, format=output_format)
-        intermediate_byte_stream.seek(0)  # Reset to the start of the stream
-        return intermediate_byte_stream.getvalue()

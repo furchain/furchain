@@ -303,7 +303,6 @@ class LoboSession(BaseModel_v1):
     def messages(self):
         return self.chat_history_proxy.messages
 
-
     def add_messages(self, messages):
         return self.chat_history_proxy.add_messages(messages)
 
