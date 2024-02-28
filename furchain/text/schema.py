@@ -449,7 +449,7 @@ Examples:
             llm=llm,
             session=session,
             chat_prompt_template=NO_HISTORY_CHAT_PROMPT_TEMPLATE,
-            grammar=json_schema_to_gbnf(json.dumps(_LoboScenario_v2.model_json_schema())),
+            grammar=json_schema_to_gbnf(json.dumps(_LoboScenario_v2.model_json_schema()).replace("allOf", "oneOf")),
             response_prefix=''
         )
         result = chat.invoke(description)
@@ -499,7 +499,7 @@ Examples:
             llm=llm,
             session=session,
             chat_prompt_template=NO_HISTORY_CHAT_PROMPT_TEMPLATE,
-            grammar=json_schema_to_gbnf(json.dumps(_LoboCharacter_v2.model_json_schema())),
+            grammar=json_schema_to_gbnf(json.dumps(_LoboCharacter_v2.model_json_schema()).replace("allOf", "oneOf")),
             response_prefix=''
         )
         result = chat.invoke(description)
@@ -565,7 +565,7 @@ Examples:
             llm=llm,
             session=session,
             chat_prompt_template=NO_HISTORY_CHAT_PROMPT_TEMPLATE,
-            grammar=json_schema_to_gbnf(json.dumps(_LoboSession_v2.model_json_schema())),
+            grammar=json_schema_to_gbnf(json.dumps(_LoboSession_v2.model_json_schema()).replace("allOf", "oneOf")),
             response_prefix=''
         )
         result = chat.invoke(description)
