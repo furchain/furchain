@@ -17,7 +17,7 @@ services:
       - "8000:8080"
     volumes:
       - "./data/llama-cpp:/models"
-    command: -m models/nous-hermes-llama-2-7b.Q4_K_M.gguf -c 4096 --host 0.0.0.0 --port 8080 --n-gpu-layers 99
+    command: -m models/FusionNet_7Bx2_MoE_14B-Q4_K.gguf -c 4096 --host 0.0.0.0 --port 8080 --n-gpu-layers 99
     deploy:
       resources:
         reservations:
@@ -46,3 +46,18 @@ services:
     restart: unless-stopped
     ports:
       - "10095:10095"
+
+  audio-rvc:
+    image: markyfsun/rvc:latest
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    volumes:
+      - "./data/rvc:/app/assets/weights"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]

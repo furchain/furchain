@@ -21,8 +21,8 @@ def print_color(text, color, **kwargs):
 # Download LLM model
 from huggingface_hub import hf_hub_download
 
-REPO_ID = "TheBloke/Nous-Hermes-Llama-2-7B-GGUF"
-FILENAME = "nous-hermes-llama-2-7b.Q4_K_M.gguf"
+REPO_ID = "Nan-Do/FusionNet_7Bx2_MoE_14B-GGUF"
+FILENAME = "FusionNet_7Bx2_MoE_14B-Q4_K.gguf"
 if not os.path.exists(f"./data/llama-cpp/{FILENAME}"):
     print_color(f"Downloading {FILENAME}, it may take a while...", Colors.CYAN)
     hf_hub_download(repo_id=REPO_ID, filename=FILENAME, local_dir="./data/llama-cpp", local_dir_use_symlinks=False)
@@ -50,20 +50,20 @@ audio_transcript = FunASR().invoke(convert_to_pcm(audio_bytes))['text']
 print_color(f"{audio_transcript=}", Colors.CYAN)
 
 # Generate text
-from furchain.text.schema import LlamaCpp, LoboChat, LoboCharacter, LoboScenario, LoboSession
+from furchain.text.schema import LlamaCpp, Chat, Character, Scenario, Session
 
 llm = LlamaCpp()
-session = LoboSession(session_id=None)
-chat = LoboChat(llm=llm, session=session)
+session = Session(session_id=None)
+chat = Chat(llm=llm, session=session)
 print_color("Ask LLM to calculate 1+1", Colors.CYAN)
 print_color(chat.invoke("calculate 1+1"), Colors.GREEN)
 
 # Roleplay
-player = LoboCharacter.from_file("./presets/characters/Dash Howler.json")
-npc = LoboCharacter.from_file("./presets/characters/Zane Ryder.json")
-scenario = LoboScenario.from_file("./presets/scenarios/Beneath the Starlit Sky.json")
-session = LoboSession(session_id="test_roleplay", player=player, npc=npc, scenario=scenario)
-chat = LoboChat(llm=llm, session=session)
+player = Character.from_file("./presets/characters/Dash Howler.json")
+npc = Character.from_file("./presets/characters/Zane Ryder.json")
+scenario = Scenario.from_file("./presets/scenarios/Beneath the Starlit Sky.json")
+session = Session(session_id="test_roleplay", player=player, npc=npc, scenario=scenario)
+chat = Chat(llm=llm, session=session)
 print_color("Engage into a roleplay game, ask for npc's plan for the night. Non-stream.", Colors.CYAN)
 text_stream = chat.stream("What's your plan for the night?")
 text = ''
@@ -105,12 +105,12 @@ for audio in audio_iterator:
 print()
 
 # Microphone input
-from furchain.audio.utils.microphone import MicrophoneStream
+from furchain.audio.utils.microphone import Microphone
 
 query = ''
 print_color("Continue this conversation by speaking with your microphone. Say `over` or `结束` to send the message.",
             Colors.RED)
-with MicrophoneStream() as microphone_stream:
+with Microphone() as microphone_stream:
     for i in FunASR(mode='2pass').stream(microphone_stream):
         query += i['text']
         print_color(i, Colors.YELLOW)

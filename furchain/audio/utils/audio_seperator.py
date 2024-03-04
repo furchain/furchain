@@ -28,7 +28,7 @@ class AudioSeparator:
         """
         self.filename = filename
         self.chunk_duration = chunk_duration
-        self.separator = Separator()
+        self.separator = Separator(model_file_dir="/tmp/audio-separator-models/")
         self.separator.load_model(model_name=model_name)
         self.audio_iterator = FlexibleAudioIterator(self.filename, self.chunk_duration)
         self.flexible = flexible

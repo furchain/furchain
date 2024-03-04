@@ -1,6 +1,9 @@
-import requests
+from typing import Optional
 
-from furchain.audio.schema import ParrotTTS
+import requests
+from langchain_core.runnables import RunnableConfig
+
+from furchain.audio.schema import TTS
 from furchain.config import AudioConfig
 
 
@@ -27,14 +30,19 @@ class GPTSovitsClient:
         return response.content
 
 
-class GPTSovits(ParrotTTS):
+class GPTSovits(TTS):
 
-    def __init__(self, api_base: str = None, **kwargs):
+    def __init__(self, api_base: str = None, refer_wav_path: str = None, prompt_text: str = None,
+                 prompt_language: str = None):
+        super().__init__()
         if api_base is None:
             api_base = AudioConfig.get_gpt_sovits_api_base()
-        super().__init__(api_base=api_base, **kwargs)
+        self.client = GPTSovitsClient(api_base, refer_wav_path, prompt_text, prompt_language)
 
-    @classmethod
-    def run(cls, text: str, api_base: str, text_language: str, refer_wav_path: str = None, prompt_text: str = None,
-            prompt_language: str = None) -> bytes:
-        return GPTSovitsClient(api_base, refer_wav_path, prompt_text, prompt_language).infer(text, text_language)
+    def run(self, text: str, text_language: str) -> bytes:
+        return self.client.infer(text, text_language)
+
+    def invoke(
+            self, input: dict, config: Optional[RunnableConfig] = None
+    ) -> bytes:
+        return self.run(**input)

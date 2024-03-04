@@ -9,8 +9,8 @@ from langchain_core.messages import messages_to_dict
 from langchain_core.prompts import AIMessagePromptTemplate, \
     MessagesPlaceholder
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate
-from langchain_core.pydantic_v1 import BaseModel as BaseModel_v1, Field as Field_v1
-from langchain_core.runnables import Runnable
+from langchain_core.pydantic_v1 import BaseModel as BaseModel_v1, Field as Field_v1, root_validator
+from langchain_core.runnables import Runnable, RunnableBinding
 from langchain_core.runnables import RunnableConfig
 from langchain_core.runnables import RunnableLambda
 from langchain_core.runnables.utils import Output
@@ -40,14 +40,14 @@ class Meta_v2(BaseModel):
     tags: list[str] = Field(default_factory=list, description="The tags of the meta data")
 
 
-class _LoboScenario_v2(BaseModel):
+class _Scenario_v2(BaseModel):
     scenario_name: str = Field(description="The name of the scenario")
     scenario_description: str = Field(description="The description of the scenario")
     meta: Meta_v2 = Field(default_factory=Meta_v2, description="The meta data of the scenario")
     type: str = "scenario"
 
 
-class LoboScenario(BaseModel_v1):
+class Scenario(BaseModel_v1):
     scenario_name: str = Field_v1(description="The name of the scenario")
     scenario_description: str = Field_v1(description="The description of the scenario")
     meta: dict = Field_v1(default_factory=dict, description="The meta data of the scenario")
@@ -55,7 +55,7 @@ class LoboScenario(BaseModel_v1):
 
     @classmethod
     def create(cls, description: str, llm):
-        return CreateLoboScenarioByChat.create(description, llm)
+        return LoboScenarioByChat.create(description, llm)
 
     @classmethod
     def from_mongo(cls, scenario_name: str, mongo_url: str = None, mongo_db: str = None, mongo_collection: str = None):
@@ -112,21 +112,21 @@ class LoboScenario(BaseModel_v1):
     def from_dict(cls, data: dict):
         data = data.copy()
 
-        return LoboScenario(
+        return Scenario(
             scenario_name=data['scenario_name'],
             scenario_description=data['scenario_description'],
             meta=Meta_v2(**data['meta'])
         )
 
 
-class _LoboCharacter_v2(BaseModel):
+class _Character_v2(BaseModel):
     character_name: str = Field(description="The name of the character")
     persona: str = Field(description="The persona of the character")
     meta: Meta_v2 = Field(default_factory=Meta_v2, description="The meta data of the character")
     type: str = "character"
 
 
-class LoboCharacter(BaseModel_v1):
+class Character(BaseModel_v1):
     character_name: str = Field_v1(description="The name of the character")
     persona: str = Field_v1(description="The persona of the character")
     meta: dict = Field_v1(default_factory=dict, description="The meta data of the character")
@@ -134,7 +134,7 @@ class LoboCharacter(BaseModel_v1):
 
     @classmethod
     def create(cls, description, llm):
-        return CreateLoboCharacterByChat.create(description, llm)
+        return CreateCharacterByChat.create(description, llm)
 
     @classmethod
     def from_mongo(cls, character_name: str, mongo_url: str = None, mongo_db: str = None, mongo_collection: str = None):
@@ -190,7 +190,7 @@ class LoboCharacter(BaseModel_v1):
     @classmethod
     def from_dict(cls, data: dict):
 
-        return LoboCharacter(
+        return Character(
             character_name=data['character_name'],
             persona=data['persona'],
             meta=data['meta'],
@@ -220,34 +220,37 @@ class LlamaCpp(Runnable):
             yield i['content']
 
 
-class LoboSession(BaseModel_v1):
+class Session(BaseModel_v1):
     session_id: str = Field_v1(None, description="The id of the session")
-    npc: LoboCharacter = Field_v1(LoboCharacter(character_name=TextConfig.get_npc_name(),
-                                                persona=TextConfig.get_npc_persona()),
-                                  description="Characteristics of the npc")
-    player: LoboCharacter = Field_v1(LoboCharacter(character_name=TextConfig.get_player_name(),
-                                                   persona=TextConfig.get_player_persona()),
-                                     description="Characteristics of the player")
-    scenario: LoboScenario = Field_v1(LoboScenario(scenario_name="default",
-                                                   scenario_description=TextConfig.get_scenario_description()),
-                                      description="Characteristics of the scenario")
+    npc: Character = Field_v1(Character(character_name=TextConfig.get_npc_name(),
+                                        persona=TextConfig.get_npc_persona()),
+                              description="Characteristics of the npc")
+    player: Character = Field_v1(Character(character_name=TextConfig.get_player_name(),
+                                           persona=TextConfig.get_player_persona()),
+                                 description="Characteristics of the player")
+    scenario: Scenario = Field_v1(Scenario(scenario_name="default",
+                                           scenario_description=TextConfig.get_scenario_description()),
+                                  description="Characteristics of the scenario")
     collection_name: str = "Session"
-    __cache = {}
+    chat_history_proxy: MongoDBChatMessageHistory = None
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    @root_validator
+    def bind_chat_history_proxy(cls, values):
+        values['chat_history_proxy'] = MongoDBChatMessageHistory(
+            connection_string=TextConfig.get_mongo_url(),
+            database_name=TextConfig.get_mongo_db(),
+            collection_name=values['collection_name'],
+        ).bind(session_id=values['session_id'], npc=values['npc'], player=values['player'], scenario=values['scenario'])
+        return values
 
     @classmethod
     def create(cls, description: str, llm: LlamaCpp, session_id=None, collection_name="Session"):
-        return CreateLoboSessionByChat.create(description=description, llm=llm, session_id=session_id,
-                                              collection_name=collection_name)
+        return CreateSessionByChat.create(description=description, llm=llm, session_id=session_id,
+                                          collection_name=collection_name)
 
-    @property
-    def chat_history_proxy(self):
-        if 'chat_history_proxy' not in self.__cache:
-            self.__cache['chat_history_proxy'] = MongoDBChatMessageHistory(
-                connection_string=TextConfig.get_mongo_url(),
-                database_name=TextConfig.get_mongo_db(),
-                collection_name=self.collection_name,
-            ).bind(session_id=self.session_id, npc=self.npc, player=self.player, scenario=self.scenario)
-        return self.__cache['chat_history_proxy']
 
     @classmethod
     def from_mongo(cls, session_id: str, collection_name: str = "Session"):
@@ -260,9 +263,9 @@ class LoboSession(BaseModel_v1):
         if result is None:
             return None
         else:
-            npc = LoboCharacter.from_dict(result['npc'])
-            player = LoboCharacter.from_dict(result['player'])
-            scenario = LoboScenario.from_dict(result['scenario'])
+            npc = Character.from_dict(result['npc'])
+            player = Character.from_dict(result['player'])
+            scenario = Scenario.from_dict(result['scenario'])
             return cls(
                 session_id=session_id,
                 npc=npc,
@@ -282,9 +285,9 @@ class LoboSession(BaseModel_v1):
             data['session_id'] = session_id
         session = cls(
             session_id=data['session_id'],
-            npc=LoboCharacter.from_dict(data['npc']),
-            player=LoboCharacter.from_dict(data['player']),
-            scenario=LoboScenario.from_dict(data['scenario']),
+            npc=Character.from_dict(data['npc']),
+            player=Character.from_dict(data['player']),
+            scenario=Scenario.from_dict(data['scenario']),
             collection_name=collection_name
         )
         session.chat_history_proxy.chat_history = data.get("chat_history", [])
@@ -313,20 +316,27 @@ class LoboSession(BaseModel_v1):
         return self.chat_history_proxy.clear()
 
 
-class LoboChat(Runnable):
+class Chat(Runnable):
 
-    def __init__(self, llm: LlamaCpp | Runnable,
-                 session: LoboSession,
+    def __init__(self, llm: LlamaCpp | RunnableBinding,
+                 session: Session,
                  chat_prompt_template: ChatPromptTemplate = None,
-                 response_prefix: str = '',
+                 response_prefix: str = None,
                  grammar: str = '',
                  **kwargs):
         super().__init__()
+        if response_prefix is None:
+            response_prefix = session.npc.character_name + ':'
+        if isinstance(llm, RunnableBinding):
+            model_kwargs = llm.kwargs
+            llm = llm.bound
+        else:
+            model_kwargs = llm.model_kwargs
         chat_format = llm.chat_format
         self.kwargs = kwargs
         chat_format_parser = chat_format.parser if isinstance(chat_format, ChatFormat) else ChatFormat(
             chat_format).parser
-        self.llm = llm.bind(stop=llm.model_kwargs.get("stop", []) + chat_format_parser.stop, grammar=grammar)
+        self.llm = llm.bind(stop=model_kwargs.get("stop", []) + chat_format_parser.stop, grammar=grammar)
         self.chat_format_parser = chat_format_parser
         self.session = session
         self.response_prefix = response_prefix
@@ -413,22 +423,22 @@ class LoboChat(Runnable):
         )
 
 
-class CreateLoboScenarioByChat:
-    format_instructions = PydanticOutputParser(pydantic_object=LoboScenario).get_format_instructions()
+class LoboScenarioByChat:
+    format_instructions = PydanticOutputParser(pydantic_object=Scenario).get_format_instructions()
     prompt_template = ChatPromptTemplate.from_messages([
         HumanMessage(content="""a scenario in intimacy"""),
         AIMessage(
             content="""{"scenario_name":"Beneath the Starlit Sky","scenario_description":"As the din of conflict fades into the silence of the night, {player_name} and {npc_name} find themselves sharing a serene moment beneath the vast, starlit sky. The scars of battle lay forgotten as they exchange stories of their pasts and hopes for the future. In the quiet of the night, with the gentle crackle of the campfire and the soft murmur of the forest around them, they forge a bond that transcends the chaos of their lives."}"""),
         HumanMessage(content="""the player accidentally come to the world of npc and meet the npc""")])
-    player = LoboCharacter(
+    player = Character(
         character_name="Human",
         persona="Need help to generate scenario.",
     )
-    npc = LoboCharacter(
+    npc = Character(
         character_name="AI",
         persona="Creative and accurate."
     )
-    scenario = LoboScenario(
+    scenario = Scenario(
         scenario_name="default",
         scenario_description=f"""User is asking Professional Creator to create a scenario in JSON format based on descriptions.
 {format_instructions}
@@ -439,28 +449,28 @@ Examples:
 
     @classmethod
     def create(cls, description, llm):
-        session = LoboSession(session_id="ScenarioCreation",
-                              collection_name="System",
-                              npc=cls.npc,
-                              player=cls.player,
-                              scenario=cls.scenario,
-                              )
-        chat = LoboChat(
+        session = Session(session_id="ScenarioCreation",
+                          collection_name="System",
+                          npc=cls.npc,
+                          player=cls.player,
+                          scenario=cls.scenario,
+                          )
+        chat = Chat(
             llm=llm,
             session=session,
             chat_prompt_template=NO_HISTORY_CHAT_PROMPT_TEMPLATE,
-            grammar=json_schema_to_gbnf(json.dumps(_LoboScenario_v2.model_json_schema()).replace("allOf", "oneOf")),
+            grammar=json_schema_to_gbnf(json.dumps(_Scenario_v2.model_json_schema()).replace("allOf", "oneOf")),
             response_prefix=''
         )
         result = chat.invoke(description)
         result = json.loads(result)
         result['meta'] = Meta_v2(**result.get('meta', {}))
         result['type'] = 'scenario'
-        return LoboScenario(**result)
+        return Scenario(**result)
 
 
-class CreateLoboCharacterByChat:
-    format_instructions = PydanticOutputParser(pydantic_object=LoboCharacter).get_format_instructions()
+class CreateCharacterByChat:
+    format_instructions = PydanticOutputParser(pydantic_object=Character).get_format_instructions()
     prompt_template = ChatPromptTemplate.from_messages([HumanMessage(content="""a furry character"""),
                                                         AIMessage(
                                                             content=r"""{"character_name":"Seraphina Pawsley","persona":"Seraphina Pawsley, a spirited anthropomorphic red panda, stands at the intersection of human intelligence and the agility of the wild. With a lush coat patterned with fiery hues and cream, she's a vibrant spirit who combines her innate climbing skills with a knack for mechanical invention. Her eyes, a deep emerald, gleam with curiosity and a playful wisdom. She's a master tinkerer, often seen with a tool belt and goggles, ready to leap into adventure or repair a steam-powered contraption in the bustling city of Gearford. Despite her small stature, she's a fierce ally, using her sharp wit and acrobatic prowess to navigate through the urban jungle. Her fluffy ringed tail is not only a symbol of her heritage but serves as a balance aid when she's leaping from rooftop to rooftop, chasing down the latest mystery or invention that's caught her keen eye.","meta":{"tags":["Anthropomorphic","Red Panda","Female","Inventor","Steampunk"]}}"""),
@@ -470,15 +480,15 @@ class CreateLoboCharacterByChat:
                                                         HumanMessage(content="""a cool human boy"""),
                                                         AIMessage(
                                                             content=r"""{"character_name":"Zane Ryder","persona":"Zane Ryder is the quintessence of cool, a teenage boy with a laid-back demeanor and a sharp sense of style. With his tousled jet-black hair and piercing ice-blue eyes, he has an effortless charm that turns heads at his high school. Standing at a casual 5'11\", Zane has a lean build honed by his love for skateboarding and urban exploration. His wardrobe is a curated collection of vintage band tees, worn-in jeans, and the latest sneakers. Accessories like his signature leather wristband and a pair of aviator sunglasses complete his look. Zane is not just about appearances; his cool factor is matched by a warm heart and a quick wit. He's the guy who always has a clever joke at the ready, but also an insightful word for friends in need. Despite his popularity, he remains approachable and down-to-earth, preferring a chill evening with close friends to big, noisy parties. Zane's coolness isn't just an act; it's a way of life, and it shows in his every confident, yet nonchalant stride.","meta":{"tags":["Human","Boy","Teenager","Skateboarder","Cool","Stylish"]}}""")])
-    player = LoboCharacter(
+    player = Character(
         character_name="Human",
         persona="Need help to generate character.",
     )
-    npc = LoboCharacter(
+    npc = Character(
         character_name="AI",
         persona="Creative and accurate."
     )
-    scenario = LoboScenario(
+    scenario = Scenario(
         scenario_name="default",
         scenario_description=f"""User is asking Professional Creator to generate a character sheet in JSON format based on descriptions.
 {format_instructions}
@@ -489,39 +499,39 @@ Examples:
 
     @classmethod
     def create(cls, description, llm):
-        session = LoboSession(session_id="CharactorCreation",
-                              collection_name="System",
-                              npc=cls.npc,
-                              player=cls.player,
-                              scenario=cls.scenario,
-                              )
-        chat = LoboChat(
+        session = Session(session_id="CharactorCreation",
+                          collection_name="System",
+                          npc=cls.npc,
+                          player=cls.player,
+                          scenario=cls.scenario,
+                          )
+        chat = Chat(
             llm=llm,
             session=session,
             chat_prompt_template=NO_HISTORY_CHAT_PROMPT_TEMPLATE,
-            grammar=json_schema_to_gbnf(json.dumps(_LoboCharacter_v2.model_json_schema()).replace("allOf", "oneOf")),
+            grammar=json_schema_to_gbnf(json.dumps(_Character_v2.model_json_schema()).replace("allOf", "oneOf")),
             response_prefix=''
         )
         result = chat.invoke(description)
         result = json.loads(result)
         result['meta'] = Meta_v2(**result.get('meta', {}))
         result['type'] = 'character'
-        return LoboCharacter(**result)
+        return Character(**result)
 
 
-class _LoboSession_v2(BaseModel):
-    npc: _LoboCharacter_v2 = Field(description="Characteristics of the npc")
-    player: _LoboCharacter_v2 = Field(description="Characteristics of the player")
-    scenario: _LoboScenario_v2 = Field(description="Characteristics of the scenario")
+class _Session_v2(BaseModel):
+    npc: _Character_v2 = Field(description="Characteristics of the npc")
+    player: _Character_v2 = Field(description="Characteristics of the player")
+    scenario: _Scenario_v2 = Field(description="Characteristics of the scenario")
 
 
-class CreateLoboSessionByChat:
-    class _LoboSession(BaseModel_v1):
-        npc: LoboCharacter = Field_v1(None, description="Characteristics of the npc")
-        player: LoboCharacter = Field_v1(None, description="Characteristics of the player")
-        scenario: LoboScenario = Field_v1(None, description="Characteristics of the scenario")
+class CreateSessionByChat:
+    class _Session(BaseModel_v1):
+        npc: Character = Field_v1(None, description="Characteristics of the npc")
+        player: Character = Field_v1(None, description="Characteristics of the player")
+        scenario: Scenario = Field_v1(None, description="Characteristics of the scenario")
 
-    format_instructions = PydanticOutputParser(pydantic_object=_LoboSession).get_format_instructions()
+    format_instructions = PydanticOutputParser(pydantic_object=_Session).get_format_instructions()
     prompt_template = ChatPromptTemplate.from_messages([HumanMessage(
         content="""A time-traveling historian from the future arrives in the court of a Renaissance monarch, aiming to observe history firsthand."""),
         AIMessage(
@@ -534,15 +544,15 @@ class CreateLoboSessionByChat:
             content="""A reclusive alchemist known for her potent potions inadvertently sells a transformation elixir to an unsuspecting traveler."""),
         AIMessage(
             content=r"""{"npc":{"character_name":"Selene Nightshade","persona":"Selene Nightshade is an enigmatic and solitary alchemist whose mastery over potions is unrivaled. Cloaked in robes the color of midnight, her presence is as elusive as the waning moon. Her eyes, a piercing violet, seem to hold the mysteries of the cosmos, reflecting a mind always at work. Her slender fingers are stained with the residue of magical ingredients, and her soft, hushed voice weaves through the quiet of her cluttered apothecary like a secret. Despite her reclusiveness, the allure of her potions draws a steady stream of brave souls to her door.","meta":{"tag":["Human","Female","Alchemist","Reclusive","Mysterious"]},"type":"character"},"player":{"character_name":"Rowan Thistledown","persona":"Rowan Thistledown is a carefree traveler with a heart full of wanderlust and eyes brimming with curiosity. His disheveled hair and well-worn clothes speak of many miles trekked and many lands explored. A smile is never far from his lips, and his laughter is as infectious as his enthusiasm for new experiences. Rowan's backpack, patched and frayed, carries souvenirs of his adventures, but it's his open spirit that invites the most extraordinary encounters.","meta":{"tag":["Human","Male","Traveler","Adventurous","Curious"]},"type":"character"},"scenario":{"scenario_name":"Elixir of Change","scenario_description":"In the bustling market of a medieval town, {player_name} stumbles upon the hidden shop of {npc_name}, an alchemist whose potions are whispered about in awe. When {player_name} unwittingly purchases a potion of transformation, the effects are both astonishing and unpredictable, leading to a series of misadventures that challenge the very perception of reality.","meta":{"tags":["Medieval","Magic","Transformation","Adventure","Mystery"]},"type":"scenario"}}""")])
-    player = LoboCharacter(
+    player = Character(
         character_name="Human",
         persona="Need help to generate character.",
     )
-    npc = LoboCharacter(
+    npc = Character(
         character_name="AI",
         persona="Creative and accurate."
     )
-    scenario = LoboScenario(
+    scenario = Scenario(
         scenario_name="default",
         scenario_description=f"""User is asking Professional Creator to generate a roleplay game sheet in JSON format based on descriptions.
 You may refer to player and npc as {{player_name}} and {{npc_name}} in persona and scenario_description.
@@ -555,25 +565,25 @@ Examples:
 
     @classmethod
     def create(cls, description, llm, session_id=None, collection_name="Session"):
-        session = LoboSession(session_id="CharactorCreation",
-                              collection_name="System",
-                              npc=cls.npc,
-                              player=cls.player,
-                              scenario=cls.scenario,
-                              )
-        chat = LoboChat(
+        session = Session(session_id="CharactorCreation",
+                          collection_name="System",
+                          npc=cls.npc,
+                          player=cls.player,
+                          scenario=cls.scenario,
+                          )
+        chat = Chat(
             llm=llm,
             session=session,
             chat_prompt_template=NO_HISTORY_CHAT_PROMPT_TEMPLATE,
-            grammar=json_schema_to_gbnf(json.dumps(_LoboSession_v2.model_json_schema()).replace("allOf", "oneOf")),
+            grammar=json_schema_to_gbnf(json.dumps(_Session_v2.model_json_schema()).replace("allOf", "oneOf")),
             response_prefix=''
         )
         result = chat.invoke(description)
         result = json.loads(result)
-        npc = LoboCharacter.from_dict(result['npc'])
-        player = LoboCharacter.from_dict(result['player'])
-        scenario = LoboScenario.from_dict(result['scenario'])
-        return LoboSession(
+        npc = Character.from_dict(result['npc'])
+        player = Character.from_dict(result['player'])
+        scenario = Scenario.from_dict(result['scenario'])
+        return Session(
             session_id=session_id,
             npc=npc,
             player=player,

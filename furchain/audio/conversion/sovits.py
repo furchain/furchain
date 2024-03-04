@@ -1,27 +1,30 @@
 import requests
 
-from furchain.audio.schema import ParrotVC
+from furchain.audio.schema import VC
 from furchain.config import AudioConfig
 
 
-class Sovits(ParrotVC):
+class Sovits(VC):
     """https://github.com/svc-develop-team/so-vits-svc/blob/4.1-Stable/flask_api.py"""
 
-    default_speaker = "nahida"
-
-    def __init__(self, api: str = None, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, speaker: str, api: str = None, pitch: int = 0,
+                 auto_f0: bool = False, response_format='flac'):
+        super().__init__()
+        self.speaker = speaker
+        self.api = api
+        self.pitch = pitch
+        self.auto_f0 = auto_f0
+        self.response_format = response_format
         if api is None:
             api = AudioConfig.get_sovits_api()
         self.api = api
 
-    def run(self, audio_bytes: bytes, pitch: int = 0, speaker: str = 'nahida',
-            auto_f0: bool = False, response_format='flac') -> bytes:
+    def run(self, audio_bytes: bytes, ) -> bytes:
         data = {
-            "pitch": pitch,
-            "speaker": speaker,
-            "auto_f0": auto_f0,
-            "response_format": response_format,
+            "pitch": self.pitch,
+            "speaker": self.speaker,
+            "auto_f0": self.auto_f0,
+            "response_format": self.response_format,
         }
         files = {
             "sample": audio_bytes,
@@ -29,3 +32,8 @@ class Sovits(ParrotVC):
 
         response = requests.post(self.api, data=data, files=files)
         return response.content
+
+
+__all__ = [
+    "Sovits"
+]

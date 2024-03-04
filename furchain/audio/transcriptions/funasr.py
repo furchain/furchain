@@ -10,7 +10,7 @@ import websocket
 import websockets
 from langchain_core.runnables.utils import Output, Input
 
-from furchain.audio.schema import ParrotSTT
+from furchain.audio.schema import STT
 from furchain.audio.utils.get_format import get_format_from_magic_bytes
 from furchain.config import AudioConfig
 from furchain.logger import logger
@@ -26,7 +26,8 @@ class FunASRSession:
 
     def __init__(self,
                  api: str = "ws://localhost:10096",
-                 mode: Literal["online", "offline", '2pass'] = "offline", format: Literal["pcm", "mp3", "mp4"] = "pcm",
+                 mode: Literal["online", "offline", '2pass'] = "offline",
+                 format: Literal["pcm", "mp3", "mp4", "wav"] = "pcm",
                  wav_name: str = None,
                  itn: bool = True,
                  sr: int = 16000, hotwords: dict = None, **kwargs):
@@ -180,26 +181,31 @@ class FunASRSession:
             self.websocket = None
 
 
-class FunASR(ParrotSTT):
+class FunASR(STT):
 
-    def __init__(self, api: str = None, **kwargs):
+    def __init__(self, api: str = None, mode: Literal["online", "offline", '2pass'] = "offline",
+                 format: Literal["pcm", "mp3", "mp4"] = "pcm", **kwargs):
         if api is None:
             api = AudioConfig.get_funasr_api()
-        kwargs["api"] = api
-        super().__init__(**kwargs)
+        self.session = FunASRSession(api=api, mode=mode, format=format, **kwargs)
 
     def invoke(self, input: Input, **kwargs) -> Output:
         if not isinstance(input, bytes):
             input = b''.join(input)
         result = ''
         kwargs['mode'] = 'offline'
+        i = None
         for i in self.stream(input, **kwargs):
             result += i['text']
+        if i is None:
+            raise RuntimeError("FunASR failed to return a valid result.")
         if result == '':
             if audio_format := get_format_from_magic_bytes(input) != 'unknown':
                 warnings.warn(
                     f"You need to convert `{audio_format}` into PCM format with `furchain.audio.utils.convert.convert_to_pcm`.")
-        return result
+
+        i['text'] = result
+        return i
 
     def stream(
             self,
@@ -222,7 +228,7 @@ class FunASR(ParrotSTT):
             except Exception:
                 iterator.terminate()
 
-        session = FunASRSession(**self._default_kwargs, **kwargs)
+        session = self.session
 
         def _stream():
             try:

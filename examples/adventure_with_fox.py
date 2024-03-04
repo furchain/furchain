@@ -1,31 +1,25 @@
-from furchain.text import LoboCharacter, LoboScenario, LoboChat, LoboSession, LlamaCpp
+from furchain.text import Chat, Session, LlamaCpp
 from furchain.text.chat_prompt_templates import ROLEPLAY_CHAT_PROMPT_TEMPLATE
+from furchain.text.schema import ChatFormat
 
-llm = LlamaCpp()
-player = LoboCharacter.create("a normal fox", llm=llm)
-npc = LoboCharacter.create("a fox with magic power", llm=llm)
-scenario = LoboScenario.create("adventure in the lost forest", llm=llm)
-session = LoboSession(
-    session_id="chat_with_fox",
-    player=player,
-    npc=npc,
-    scenario=scenario
-)
-chat = LoboChat(
-    llm=llm,
+llm = LlamaCpp(chat_format=ChatFormat.LimaRPExtendedAlpaca)
+session = Session.create("As a normal fox, taking adventure in the lost forest, with a fox with magic power.", llm=llm,
+                         session_id="adventure_with_fox")
+chat = Chat(
+    llm=llm.bind(stop=[session.player.character_name + ':']),
     session=session,
-    scenario=scenario,
     chat_prompt_template=ROLEPLAY_CHAT_PROMPT_TEMPLATE,
-    response_prefix=npc.character_name + ":",
-    stop=[player.character_name + ":"]  # prevent the player from talking
 )
 
-print(f"Player (You): {player.character_name}, {player.persona}")
-print(f"NPC: {npc.character_name}, {npc.persona}")
-print(f"Scenario: {scenario.scenario_description})")
-while True:
-    print('------')
-    query = input(player.character_name + ": >>>")
-    for i in chat.stream(query):
-        print(i, end='')
-    print()
+print(f"[Player] {session.player.character_name}: {session.player.persona}\n")
+print(f"[NPC] {session.npc.character_name}: {session.npc.persona}\n")
+print(f"[Scenario] {session.scenario.scenario_description})\n")
+try:
+    while True:
+        print('------')
+        query = input(session.player.character_name + ": >>>")
+        for i in chat.stream(query):
+            print(i, end='')
+        print()
+finally:
+    session.clear()

@@ -5,7 +5,7 @@ import pyaudio
 import pydub
 
 
-class MicrophoneStream:
+class Microphone:
     """
     This class represents a stream of audio data from a microphone.
 
