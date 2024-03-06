@@ -19,7 +19,14 @@ def print_color(text, color, **kwargs):
 
 
 # Download LLM model
-from huggingface_hub import hf_hub_download
+try:
+    from huggingface_hub import hf_hub_download
+except ImportError:
+    import subprocess
+    import sys
+
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "huggingface_hub"])
+    from huggingface_hub import hf_hub_download
 
 REPO_ID = "Nan-Do/FusionNet_7Bx2_MoE_14B-GGUF"
 FILENAME = "FusionNet_7Bx2_MoE_14B-Q4_K.gguf"
@@ -122,7 +129,7 @@ sentence_stream = (chat | SentenceStreamOutputParser()).stream(query)
 sentence_iterator, audio_iterator = iterator_callback_broadcaster(sentence_stream, [lambda x: x,
                                                                                     lambda x: gpt_sovits.invoke(
                                                                                         {"text": x,
-                                                                                         "text_language": "en"}) if x else None])
+                                                                                         "text_language": "en"}) if x.strip() else None])
 for audio in audio_iterator:
     if audio:
         print_color(audio, Colors.CYAN)

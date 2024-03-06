@@ -63,4 +63,3 @@ class FlexibleAudioIterator:
     def set_chunk_duration(self, duration):
         self.chunk_duration = duration
         self.chunk_size = int(self.sr * self.chunk_duration)
-

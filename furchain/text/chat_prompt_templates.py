@@ -10,7 +10,6 @@ Scenario: {scenario_description}"""),
                                                                     HumanMessagePromptTemplate.from_template(
                                                                         """{player_name}: {query}""")])
 
-
 NORMAL_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""{npc_name}'s Persona: {npc_persona}
 
 {player_name}'s Persona: {player_persona}
@@ -19,7 +18,6 @@ Scenario: {scenario_description}"""),
                                                                 MessagesPlaceholder(variable_name='chat_history'),
                                                                 HumanMessagePromptTemplate.from_template(
                                                                     """{player_name}: {query}""")])
-
 
 ROLEPLAY_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""{npc_name}'s Persona: {npc_persona}
 

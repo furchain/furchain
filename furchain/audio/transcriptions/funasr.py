@@ -18,6 +18,7 @@ from furchain.utils.iterator import BufferIterator
 
 END_MESSAGE = json.dumps({"is_speaking": False})
 
+
 class FunASRSession:
     """
     Deployment: https://github.com/alibaba-damo-academy/FunASR/blob/main/runtime/docs/SDK_advanced_guide_online.md

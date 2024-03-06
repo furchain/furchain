@@ -251,7 +251,6 @@ class Session(BaseModel_v1):
         return CreateSessionByChat.create(description=description, llm=llm, session_id=session_id,
                                           collection_name=collection_name)
 
-
     @classmethod
     def from_mongo(cls, session_id: str, collection_name: str = "Session"):
         chat_history_proxy = MongoDBChatMessageHistory(

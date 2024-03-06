@@ -63,6 +63,8 @@ class VicunaChatFormatParser(ChatFormatParser):
                 prompt += cls._ai_prefix + ": " + i.content + cls._sep2
         prompt += cls._ai_prefix + ": "  # Append the AI prefix for the next response
         return prompt
+
+
 class AlpacaChatFormatParser(ChatFormatParser):
     _sep = "\n\n"
     _sep2 = "</s>"

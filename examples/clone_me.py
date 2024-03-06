@@ -25,7 +25,7 @@ def print_color(text, color, **kwargs):
     print(color + str(text) + Colors.RESET, **kwargs)
 
 
-language = input("""What language do you speak?
+language = input("""Which language do you speak?
 1. English
 2. Chinese
 

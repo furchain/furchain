@@ -20,8 +20,10 @@ openai = "^1.10.0"
 ffmpeg-python = "^0.2.0"
 langchain = "^0.1.4"
 pymongo = "^4.6.1"
-llama-cpp-python = "^0.2.33"
+llama-cpp-python = "^0.2.52"
 python-dotenv = "^1.0.1"
+pyaudio = "^0.2.14"
+websockets = "^12.0"
 
 
 [build-system]

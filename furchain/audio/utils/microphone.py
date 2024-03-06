@@ -49,10 +49,10 @@ class Microphone:
 
         # Open the stream
         self.stream = self.p.open(format=self.format,
-                        channels=self.channels,
-                        rate=self.rate,
-                        input=True,
-                        frames_per_buffer=self.chunk_size)
+                                  channels=self.channels,
+                                  rate=self.rate,
+                                  input=True,
+                                  frames_per_buffer=self.chunk_size)
 
         def _run():
             while not self.stop_event.is_set():

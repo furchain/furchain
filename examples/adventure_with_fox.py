@@ -3,6 +3,7 @@ from furchain.text.chat_prompt_templates import ROLEPLAY_CHAT_PROMPT_TEMPLATE
 from furchain.text.schema import ChatFormat
 
 llm = LlamaCpp(chat_format=ChatFormat.LimaRPExtendedAlpaca)
+print("Creating a session...\n")
 session = Session.create("As a normal fox, taking adventure in the lost forest, with a fox with magic power.", llm=llm,
                          session_id="adventure_with_fox")
 chat = Chat(
