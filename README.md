@@ -71,7 +71,7 @@ The `data` directory serves as the central hub for your models, audio files, and
 Should you wish to contribute or customize `furchain`, clone this repository and install it as an editable package:
 
 ```bash
-git clone https://github.com/yourusername/furchain.git
-cd furchain
+git clone https://github.com/furchain/FurChain.git
+cd FurChain
 pip install -e .
 ```
