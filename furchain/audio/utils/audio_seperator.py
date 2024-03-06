@@ -4,7 +4,7 @@ import time
 
 from audio_separator.separator import Separator
 
-from furchain.audio.utils.audio_iter import FlexibleAudioIterator
+from furchain.audio.utils.audio_iterator import AudioIterator
 
 
 class AudioSeparator:
@@ -15,7 +15,7 @@ class AudioSeparator:
         filename (str): The path to the audio file.
         chunk_duration (int): The duration of each chunk in seconds. Default is 10 seconds.
         separator (Separator): An instance of the Separator class used to separate the audio.
-        audio_iterator (FlexibleAudioIterator): An instance of the FlexibleAudioIterator class used to iterate over the audio.
+        audio_iterator (AudioIterator): An instance of the FlexibleAudioIterator class used to iterate over the audio.
     """
 
     def __init__(self, filename, chunk_duration=10, model_name="UVR-MDX-NET-Inst_HQ_3", flexible=True):
@@ -30,7 +30,7 @@ class AudioSeparator:
         self.chunk_duration = chunk_duration
         self.separator = Separator(model_file_dir="/tmp/audio-separator-models/")
         self.separator.load_model(model_name=model_name)
-        self.audio_iterator = FlexibleAudioIterator(self.filename, self.chunk_duration)
+        self.audio_iterator = AudioIterator(self.filename, self.chunk_duration)
         self.flexible = flexible
 
     def __iter__(self):
@@ -71,3 +71,8 @@ class AudioSeparator:
                 return vocal_wav, instrumental_wav
 
         raise StopIteration
+
+
+__all__ = [
+    "AudioSeparator"
+]

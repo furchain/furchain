@@ -10,30 +10,45 @@ from furchain.audio.utils.play import get_format_from_magic_bytes
 
 
 def convert_to_pcm(audio_bytes: bytes, sample_rate: int = 16000) -> bytes:
+    """
+    This function converts an audio file to PCM format.
+
+    Args:
+        audio_bytes (bytes): The audio file in bytes.
+        sample_rate (int, optional): The sample rate for the audio file. Default is 16000.
+
+    Returns:
+        bytes: The audio file in PCM format.
+    """
     audio_format = get_format_from_magic_bytes(audio_bytes)
 
-    # If the format could not be determined, raise an error
     if audio_format == 'unknown':
         raise ValueError("Unknown audio format. Cannot convert to PCM.")
 
-    # Read the audio data into an AudioSegment
     audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format=audio_format)
 
-    # Export the audio data to a WAV file (in memory)
     buffer = io.BytesIO()
     audio.export(buffer, format='wav', parameters=["-ar", str(sample_rate)])
 
-    # Get the buffer content
     buffer.seek(0)
     wav_data = buffer.read()
 
-    # Extract PCM data from the WAV container (skip the 44-byte header)
     pcm_data = wav_data[44:]
 
     return pcm_data
 
 
 def convert_to_mp3(audio_bytes: bytes, sample_rate: int = 16000) -> bytes:
+    """
+    This function converts an audio file to MP3 format.
+
+    Args:
+        audio_bytes (bytes): The audio file in bytes.
+        sample_rate (int, optional): The sample rate for the audio file. Default is 16000.
+
+    Returns:
+        bytes: The audio file in MP3 format.
+    """
     audio_format = get_format_from_magic_bytes(audio_bytes)
 
     if audio_format == 'unknown':
@@ -52,40 +67,41 @@ def convert_to_mp3(audio_bytes: bytes, sample_rate: int = 16000) -> bytes:
 
 def convert(audio_bytes: bytes, format: Literal['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'] = 'wav', **kwargs):
     """
-    Convert the input audio bytes to the specified format using ffmpeg.
+    This function converts an audio file to the specified format.
 
-    Parameters:
-    audio_bytes (bytes): The input audio data as bytes.
-    format (str): The target format for the audio conversion. Supported formats are 'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'. Default is 'wav'.
-    **kwargs: Additional keyword arguments to be passed to the ffmpeg output function.
+    Args:
+        audio_bytes (bytes): The audio file in bytes.
+        format (str, optional): The format to convert the audio file to. Default is 'wav'.
+        **kwargs: Additional parameters to pass to the ffmpeg command.
 
     Returns:
-    bytes: The converted audio data as bytes.
+        bytes: The audio file in the specified format.
     """
-
     with tempfile.NamedTemporaryFile(suffix='.input') as input_temp:
-        # Write the input audio bytes to the temporary file
         input_temp.write(audio_bytes)
-        input_temp.flush()  # Ensure all data is written to disk
+        input_temp.flush()
 
-        # Create a temporary file for the output audio
         output_filename = input_temp.name + f'.{format}'
 
-        # Use ffmpeg to convert the audio to the target format and sample rate
         ffmpeg.input(input_temp.name).output(
             output_filename,
             format=format,
             **kwargs
         ).run(capture_stdout=True, capture_stderr=True)
 
-        # Read the converted audio bytes from the output temporary file
         with open(output_filename, 'rb') as f:
             output_audio_bytes = f.read()
 
-        # Clean up the output temporary file
         try:
             os.remove(output_filename)
         except OSError:
             pass
 
     return output_audio_bytes
+
+
+__all__ = [
+    "convert_to_pcm",
+    "convert_to_mp3",
+    "convert"
+]
