@@ -18,11 +18,15 @@ from furchain.utils.iterator import BufferIterator
 
 END_MESSAGE = json.dumps({"is_speaking": False})
 
-
 class FunASRSession:
     """
-    Deployment: https://github.com/alibaba-damo-academy/FunASR/blob/main/runtime/docs/SDK_advanced_guide_online.md
-    Protocol: https://github.com/alibaba-damo-academy/FunASR/blob/main/runtime/docs/websocket_protocol.md
+    This class represents a session with the FunASR API.
+    It is used to send and receive messages to and from the API.
+
+    Attributes:
+        api (str): The URL of the FunASR API.
+        websocket (websocket.WebSocket): The WebSocket used to communicate with the API.
+        config (dict): The configuration for the session.
     """
 
     def __init__(self,
@@ -56,6 +60,9 @@ class FunASRSession:
         await self.aclose()
 
     async def aconnect(self):
+        """
+        This method connects to the FunASR API using a WebSocket.
+        """
         if self.api.startswith('wss'):
             ssl_context = ssl.SSLContext()
             ssl_context.check_hostname = False
@@ -66,6 +73,13 @@ class FunASRSession:
                                                   ping_interval=None, ssl=ssl_context)
 
     async def astream_audio(self, audio_stream: Iterable, handler: Callable):
+        """
+        This method sends the audio stream to the FunASR API and starts receiving messages.
+
+        Args:
+            audio_stream (Iterable): The audio stream to be sent.
+            handler (Callable): The function to handle the received messages.
+        """
         if self.websocket is None:
             raise RuntimeError("Session is not connected")
 
@@ -93,6 +107,12 @@ class FunASRSession:
                 pass
 
     async def areceive_messages(self, handler):
+        """
+        This method receives messages from the FunASR API and passes them to the handler.
+
+        Args:
+            handler (Callable): The function to handle the received messages.
+        """
         try:
             while True:
                 data = await self.websocket.recv()
@@ -104,6 +124,9 @@ class FunASRSession:
             pass
 
     async def aclose(self):
+        """
+        This method closes the connection to the FunASR API.
+        """
         if self.websocket is not None:
             await self.websocket.close()
             self.websocket = None
@@ -116,6 +139,9 @@ class FunASRSession:
         self.close()
 
     def connect(self):
+        """
+        This method connects to the FunASR API using a WebSocket.
+        """
         if self.api.startswith('wss'):
             ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             ssl_context.check_hostname = False
@@ -126,6 +152,13 @@ class FunASRSession:
                                                      sslopt={"cert_reqs": ssl.CERT_NONE} if ssl_context else {})
 
     def stream_audio(self, audio_stream, handler):
+        """
+        This method sends the audio stream to the FunASR API and starts receiving messages.
+
+        Args:
+            audio_stream (Iterable): The audio stream to be sent.
+            handler (Callable): The function to handle the received messages.
+        """
         if self.websocket is None:
             raise RuntimeError("Session is not connected")
         message = json.dumps(self.config)
@@ -177,12 +210,22 @@ class FunASRSession:
             receive_thread.join()
 
     def close(self):
+        """
+        This method closes the connection to the FunASR API.
+        """
         if self.websocket is not None:
             self.websocket.close()
             self.websocket = None
 
 
 class FunASR(STT):
+    """
+    This class is a subclass of STT and represents the FunASR Speech-to-Text (STT) model.
+    It is used to convert speech to text.
+
+    Attributes:
+        session (FunASRSession): The session with the FunASR API.
+    """
 
     def __init__(self, api: str = None, mode: Literal["online", "offline", '2pass'] = "offline",
                  format: Literal["pcm", "mp3", "mp4"] = "pcm", **kwargs):
@@ -191,6 +234,16 @@ class FunASR(STT):
         self.session = FunASRSession(api=api, mode=mode, format=format, **kwargs)
 
     def invoke(self, input: Input, **kwargs) -> Output:
+        """
+        This method converts the given input to text.
+
+        Args:
+            input (Input): The input to be converted to text.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Output: The text.
+        """
         if not isinstance(input, bytes):
             input = b''.join(input)
         result = ''
@@ -213,6 +266,16 @@ class FunASR(STT):
             input: Iterable,
             **kwargs: Optional[Any],
     ) -> Iterator[Output]:
+        """
+        This method converts the given input to text in a streaming manner.
+
+        Args:
+            input (Iterable): The input to be converted to text.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Iterator[Output]: The text.
+        """
         if isinstance(input, bytes):
             def _input(x):
                 yield x
@@ -248,3 +311,8 @@ class FunASR(STT):
             session.close()
             if stream_thread.is_alive():
                 stream_thread.join()
+
+
+__all__ = [
+    "FunASR"
+]

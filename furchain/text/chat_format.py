@@ -6,14 +6,50 @@ from langchain_core.prompt_values import ChatPromptValue
 
 
 class ChatFormatParser(metaclass=abc.ABCMeta):
+    """
+    Abstract base class for chat format parsers.
+
+    Attributes:
+        stop (list): List of stop words or phrases.
+
+    Methods:
+        parse(chat_prompt_value: ChatPromptValue): Abstract method for parsing a chat prompt value.
+    """
     stop: list = list()
 
     @abc.abstractmethod
     def parse(self, chat_prompt_value: ChatPromptValue) -> str:
+        """
+        Abstract method for parsing a chat prompt value.
+
+        Args:
+            chat_prompt_value (ChatPromptValue): The chat prompt value to parse.
+
+        Returns:
+            str: The parsed chat prompt value.
+
+        Raises:
+            NotImplementedError: This method must be implemented by a subclass.
+        """
         raise NotImplementedError
 
 
 class Llama2ChatFormatParser(ChatFormatParser):
+    """
+    Chat format parser for the Llama2 format.
+
+    Attributes:
+        _sep (str): Separator string.
+        _sep2 (str): Secondary separator string.
+        _system_prefix (str): Prefix for system messages.
+        _system_suffix (str): Suffix for system messages.
+        _human_prefix (str): Prefix for human messages.
+        _ai_prefix (str): Prefix for AI messages.
+        stop (list): List of stop words or phrases.
+
+    Methods:
+        parse(chat_prompt_value: ChatPromptValue): Parses a chat prompt value in the Llama2 format.
+    """
     _sep = " "
     _sep2 = "</s>"
     _system_prefix = "<s>[INST] <<SYS>>\n"
@@ -24,6 +60,15 @@ class Llama2ChatFormatParser(ChatFormatParser):
 
     @classmethod
     def parse(cls, chat_prompt_value: ChatPromptValue) -> str:
+        """
+        Parses a chat prompt value in the Llama2 format.
+
+        Args:
+            chat_prompt_value (ChatPromptValue): The chat prompt value to parse.
+
+        Returns:
+            str: The parsed chat prompt value.
+        """
         messages = chat_prompt_value.messages
         prompt = ''
         system_message = ''
@@ -41,6 +86,20 @@ class Llama2ChatFormatParser(ChatFormatParser):
 
 
 class VicunaChatFormatParser(ChatFormatParser):
+    """
+    Chat format parser for the Vicuna format.
+
+    Attributes:
+        _sep (str): Separator string.
+        _sep2 (str): Secondary separator string.
+        _system_message (str): Default system message.
+        _human_prefix (str): Prefix for human messages.
+        _ai_prefix (str): Prefix for AI messages.
+        stop (list): List of stop words or phrases.
+
+    Methods:
+        parse(chat_prompt_value: ChatPromptValue): Parses a chat prompt value in the Vicuna format.
+    """
     _sep = " "
     _sep2 = "</s>"
     _system_message = "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions."
@@ -50,6 +109,15 @@ class VicunaChatFormatParser(ChatFormatParser):
 
     @classmethod
     def parse(cls, chat_prompt_value: ChatPromptValue) -> str:
+        """
+        Parses a chat prompt value in the Vicuna format.
+
+        Args:
+            chat_prompt_value (ChatPromptValue): The chat prompt value to parse.
+
+        Returns:
+            str: The parsed chat prompt value.
+        """
         messages = chat_prompt_value.messages
         system_message = cls._system_message
         if len(messages) > 0 and isinstance(messages[0], SystemMessage):
@@ -66,6 +134,20 @@ class VicunaChatFormatParser(ChatFormatParser):
 
 
 class AlpacaChatFormatParser(ChatFormatParser):
+    """
+    Chat format parser for the Alpaca format.
+
+    Attributes:
+        _sep (str): Separator string.
+        _sep2 (str): Secondary separator string.
+        _human_prefix (str): Prefix for human messages.
+        _ai_prefix (str): Prefix for AI messages.
+        stop (list): List of stop words or phrases.
+
+    Methods:
+        parse(chat_prompt_value: ChatPromptValue): Parses a chat prompt value in the Alpaca format.
+    """
+
     _sep = "\n\n"
     _sep2 = "</s>"
     _human_prefix = "### Instruction:\n"
@@ -74,6 +156,15 @@ class AlpacaChatFormatParser(ChatFormatParser):
 
     @classmethod
     def parse(cls, chat_prompt_value: ChatPromptValue) -> str:
+        """
+        Parses a chat prompt value in the Alpaca format.
+
+        Args:
+            chat_prompt_value (ChatPromptValue): The chat prompt value to parse.
+
+        Returns:
+            str: The parsed chat prompt value.
+        """
         messages = chat_prompt_value.messages
         prompt = ''
         system_message = ''
@@ -92,6 +183,19 @@ class AlpacaChatFormatParser(ChatFormatParser):
 
 
 class ExtendedAlpacaChatFormatParser(ChatFormatParser):
+    """
+    Chat format parser for the Extended Alpaca format.
+
+    Attributes:
+        _sep (str): Separator string.
+        _human_prefix (str): Prefix for human messages.
+        _ai_prefix (str): Prefix for AI messages.
+        stop (list): List of stop words or phrases.
+
+    Methods:
+        parse(chat_prompt_value: ChatPromptValue): Parses a chat prompt value in the Extended Alpaca format.
+    """
+
     _sep = '\n\n'
     _human_prefix = '### Input:\n'
     _ai_prefix = '### Response:\n'
@@ -99,6 +203,15 @@ class ExtendedAlpacaChatFormatParser(ChatFormatParser):
 
     @classmethod
     def parse(cls, chat_prompt_value: ChatPromptValue) -> str:
+        """
+        Parses a chat prompt value in the Extended Alpaca format.
+
+        Args:
+            chat_prompt_value (ChatPromptValue): The chat prompt value to parse.
+
+        Returns:
+            str: The parsed chat prompt value.
+        """
         messages = chat_prompt_value.messages
         prompt = '### Instruction:\n'
         system_message = ''
@@ -116,27 +229,71 @@ class ExtendedAlpacaChatFormatParser(ChatFormatParser):
 
 
 class LimaRPExtendedAlpacaChatFormatParser(ExtendedAlpacaChatFormatParser):
+    """
+    Chat format parser for the LimaRP Extended Alpaca format.
+
+    Attributes:
+        length (str): The length of the response. Default is 'medium'.
+
+    Methods:
+        parse(chat_prompt_value: ChatPromptValue): Parses a chat prompt value in the LimaRP Extended Alpaca format.
+    """
 
     def __init__(self, length: str = 'medium'):
         super().__init__()
         self.length = length
 
     def parse(cls, chat_prompt_value: ChatPromptValue) -> str:
+        """
+        Parses a chat prompt value in the LimaRP Extended Alpaca format.
+
+        Args:
+            chat_prompt_value (ChatPromptValue): The chat prompt value to parse.
+
+        Returns:
+            str: The parsed chat prompt value.
+        """
         prompt = super().parse(chat_prompt_value).removesuffix(
             '### Response:') + '### Response: (length = ' + cls.length + ')\n'
         return prompt
 
-
 class ChatMLChatFormatParser(ChatFormatParser):
-    _sep = "<|im_end|>"
+    """
+    Chat format parser for the ChatML format.
+
+    Attributes:
+        _sep (str): Separator string used to separate different parts of the chat.
+        _human_prefix (str): Prefix for user messages.
+        _ai_prefix (str): Prefix for assistant messages.
+        stop (list): List of stop words or phrases.
+
+    Methods:
+        parse(chat_prompt_value: ChatPromptValue): Parses a chat prompt value in the ChatML format.
+    """
+
+    _sep = "<|im_""end|>"  # This special token prevents copilot from generating complete response, so I split it into two parts
     _human_prefix = "<|im_start|>user"
     _ai_prefix = "<|im_start|>assistant"
-    stop = ['<|im_end|>']
+    stop = ["<|im_""end|>"]
 
     @classmethod
     def parse(self, chat_prompt_value: ChatPromptValue) -> str:
+        """
+        Parses a chat prompt value in the ChatML format.
+
+        Args:
+            chat_prompt_value (ChatPromptValue): The chat prompt value to parse.
+
+        Returns:
+            str: The parsed chat prompt value.
+
+        The method starts by initializing the prompt with a system message.
+        Then it iterates over the messages in the chat prompt value.
+        For each message, it checks the type of the message (HumanMessage or AIMessage) and appends the content of the message to the prompt with the appropriate prefix.
+        Finally, it appends the AI prefix to the prompt and returns it.
+        """
         messages = chat_prompt_value.messages
-        prompt = '<|im_start|>system'
+        prompt = "<|im_start|>system"
         system_message = ''
         if len(messages) > 0 and isinstance(messages[0], SystemMessage):
             system_message = messages[0].content
@@ -152,6 +309,21 @@ class ChatMLChatFormatParser(ChatFormatParser):
 
 
 class ChatFormat(enum.Enum):
+    """
+    Enum for chat formats.
+
+    Attributes:
+        Alpaca (str): Alpaca chat format.
+        ExtendedAlpaca (str): Extended Alpaca chat format.
+        LimaRPExtendedAlpaca (str): LimaRP Extended Alpaca chat format.
+        ChatML (str): ChatML chat format.
+        Llama2 (str): Llama2 chat format.
+        Vicuna (str): Vicuna chat format.
+
+    Methods:
+        parser: Returns the appropriate chat format parser for the chat format.
+    """
+
     Alpaca = 'Alpaca'
     ExtendedAlpaca = 'ExtendedAlpaca'
     LimaRPExtendedAlpaca = 'LimaRPExtendedAlpaca'
@@ -161,6 +333,15 @@ class ChatFormat(enum.Enum):
 
     @property
     def parser(self) -> ChatFormatParser:
+        """
+        Returns the appropriate chat format parser for the chat format.
+
+        Returns:
+            ChatFormatParser: The chat format parser.
+
+        Raises:
+            NotImplementedError: If the chat format is not supported.
+        """
         if self == ChatFormat.Alpaca:
             return AlpacaChatFormatParser()
         elif self == ChatFormat.ExtendedAlpaca:
@@ -175,3 +356,8 @@ class ChatFormat(enum.Enum):
             return VicunaChatFormatParser()
         else:
             raise NotImplementedError
+
+
+__all__ = [
+    "ChatFormat"
+]

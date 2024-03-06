@@ -10,6 +10,17 @@ from furchain.logger import logger
 
 
 def play_audio_bytes(audio_bytes: bytes):
+    """
+    This function plays an audio file from bytes.
+
+    Args:
+        audio_bytes (bytes): The audio file in bytes.
+
+    The function first tries to determine the format of the audio file from its magic bytes.
+    If the format is known, it uses pydub to play the audio.
+    If the format is unknown, it writes the audio data to a temporary file and lets pydub or ffmpeg guess the format.
+    If pydub fails to play the audio, it tries to use the system's default player as a fallback.
+    """
     try:
         format = get_format_from_magic_bytes(audio_bytes)
         if format == 'unknown':
@@ -38,3 +49,8 @@ def play_audio_bytes(audio_bytes: bytes):
                     logger.error("Failed to play audio with system's default player.")
         except Exception as ex:
             logger.error(f"Failed to play audio with system's default player: {ex}")
+
+
+__all__ = [
+    "play_audio_bytes"
+]

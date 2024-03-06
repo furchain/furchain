@@ -6,15 +6,25 @@ from furchain.audio.utils.get_format import get_format_from_magic_bytes
 
 
 class AudioEditor:
+    """
+    This class provides static methods for editing audio files. It can merge and concatenate audio files.
+
+    Methods:
+        merge(*audio_bytes_streams, output_format=None): Merges multiple audio files into one.
+        concat(*audio_bytes_streams, output_format=None): Concatenates multiple audio files into one.
+    """
 
     @staticmethod
     def merge(*audio_bytes_streams, output_format=None):
         """
-        Merges multiple audio byte streams into one and outputs it in the specified format.
+        This method merges multiple audio files into one. It overlays the audio files on top of each other.
 
-        :param audio_bytes_streams: List of audio byte stream arguments.
-        :param output_format: The desired output format (default is 'mp3').
-        :return: Byte stream of the merged audio in the specified format.
+        Args:
+            *audio_bytes_streams: The audio files in bytes.
+            output_format (str, optional): The format of the output audio file. If not provided, it is inferred from the first audio file.
+
+        Returns:
+            bytes: The merged audio file in bytes.
         """
         if output_format is None:
             output_format = get_format_from_magic_bytes(audio_bytes_streams[0])
@@ -35,6 +45,16 @@ class AudioEditor:
 
     @staticmethod
     def concat(*audio_bytes_streams, output_format=None):
+        """
+        This method concatenates multiple audio files into one. It appends the audio files one after the other.
+
+        Args:
+            *audio_bytes_streams: The audio files in bytes.
+            output_format (str, optional): The format of the output audio file. If not provided, it is inferred from the first audio file.
+
+        Returns:
+            bytes: The concatenated audio file in bytes.
+        """
         # Create an empty AudioSegment object
         if output_format is None:
             output_format = get_format_from_magic_bytes(audio_bytes_streams[0])
@@ -52,3 +72,8 @@ class AudioEditor:
         buffer = io.BytesIO()
         combined.export(buffer, format=output_format)
         return buffer.getvalue()
+
+
+__all__ = [
+    "AudioEditor"
+]

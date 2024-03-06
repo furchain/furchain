@@ -7,31 +7,29 @@ import pydub
 
 class Microphone:
     """
-    This class represents a stream of audio data from a microphone.
+    This class represents a microphone that can capture audio data in chunks.
 
     Attributes:
-        chunk_size (int): The size of each chunk of audio data.
-        format (int): The format of the audio data.
-        channels (int): The number of audio channels.
-        rate (int): The sample rate of the audio data.
+        chunk_duration (int): The duration of each chunk in milliseconds. Default is 200.
+        chunk_size (int): The size of each chunk in samples. If not provided, it is calculated based on the chunk duration and sample rate.
+        format (int): The format of the audio data. Default is pyaudio.paInt16.
+        channels (int): The number of channels. Default is 1.
+        rate (int): The sample rate. Default is 16000.
+        output_format (str): The format of the output audio data. Default is 'pcm'.
         stop_event (threading.Event): An event that can be set to stop the stream.
+        stream (pyaudio.Stream): The audio stream.
+        p (pyaudio.PyAudio): The PyAudio object.
+
+    Methods:
+        __enter__(): Opens the audio stream and returns a generator function that reads chunks of data from the microphone.
+        __exit__(exc_type, exc_val, exc_tb): Stops the stream and terminates the PyAudio object.
+        stop(): Sets the stop event to stop the stream.
     """
 
     def __init__(self, chunk_duration: int = 200, chunk_size=None, format=pyaudio.paInt16, channels=1, rate=16000,
                  output_format='pcm'):
         """
-        The constructor for the MicrophoneStream class.
-
-        Parameters:
-            chunk_duration (int, optional): The duration of each chunk of audio data in milliseconds. Defaults to 200.
-            chunk_size (int, optional): The size of each chunk of audio data. Defaults to None.
-            format (int, optional): The format of the audio data. Defaults to pyaudio.paInt16.
-            channels (int, optional): The number of audio channels. Defaults to 1.
-            rate (int, optional): The sample rate of the audio data. Defaults to 16000.
-            output_format (str, optional): The format of the audio data to be yielded. Defaults to 'pcm'.
-
-        Raises:
-            ValueError: If both chunk_size and chunk_duration are set.
+        Initializes the Microphone with the given chunk duration, chunk size, format, channels, sample rate, and output format.
         """
         if chunk_size is None:
             chunk_size = int(rate * chunk_duration / 1000)
@@ -45,6 +43,9 @@ class Microphone:
         self.p = None
 
     def __enter__(self):
+        """
+        Opens the audio stream and returns a generator function that reads chunks of data from the microphone.
+        """
         self.p = pyaudio.PyAudio()
 
         # Open the stream
@@ -73,6 +74,9 @@ class Microphone:
         return _run()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Stops the stream and terminates the PyAudio object.
+        """
         self.stop()
         self.stream.stop_stream()
         self.stream.close()
@@ -81,4 +85,12 @@ class Microphone:
         self.p = None
 
     def stop(self):
+        """
+        Sets the stop event to stop the stream.
+        """
         self.stop_event.set()
+
+
+__all__ = [
+    "Microphone"
+]

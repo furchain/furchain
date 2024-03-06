@@ -5,15 +5,41 @@ from typing import List, Iterable
 
 
 class FutureIter:
-    """An iterator that retrieves items from a queue and waits for their results."""
+    """
+    A class that wraps a queue object and provides an iterator interface.
+
+    Attributes:
+        queue (queue.Queue): The queue object to be iterated over.
+    """
 
     def __init__(self, queue: queue.Queue):
+        """
+        Initializes the FutureIter instance with a queue.
+
+        Args:
+            queue (queue.Queue): The queue object to be iterated over.
+        """
         self.queue = queue
 
     def __iter__(self):
+        """
+        Returns the iterator object (self).
+
+        Returns:
+            FutureIter: The iterator object.
+        """
         return self
 
     def __next__(self):
+        """
+        Retrieves the next item from the queue.
+
+        Returns:
+            Any: The result of the future object.
+
+        Raises:
+            Exception: If the future object is an instance of Exception.
+        """
         future = self.queue.get()
         if isinstance(future, Exception):
             raise future
@@ -21,7 +47,16 @@ class FutureIter:
 
 
 def iterator_callback_broadcaster(iterator: Iterable, callbacks) -> List[Iterable]:
-    """Broadcasts the elements of an iterator to multiple callback functions concurrently."""
+    """
+    Broadcasts the results of an iterator to multiple callbacks.
+
+    Args:
+        iterator (Iterable): The iterator to broadcast.
+        callbacks (list): The list of callback functions.
+
+    Returns:
+        List[Iterable]: A list of FutureIter objects for each callback.
+    """
     iterator = iter(iterator)
     broadcast = {callback: [] for callback in callbacks}
     executor = concurrent.futures.ThreadPoolExecutor()
@@ -30,12 +65,19 @@ def iterator_callback_broadcaster(iterator: Iterable, callbacks) -> List[Iterabl
     callback_iters = [FutureIter(callback_queues[callback]) for callback in callbacks]
 
     def broadcast_cache(cache):
-        """Broadcasts cache to all callbacks."""
+        """
+        Broadcasts cache to all callbacks.
+
+        Args:
+            cache (Any): The cache value to broadcast.
+        """
         for cache_list in broadcast.values():
             cache_list.append(cache)
 
     def add_cache():
-        """Adds next iterator value to cache and broadcasts it."""
+        """
+        Adds next iterator value to cache and broadcasts it.
+        """
         try:
             cache_value = next(iterator)
         except StopIteration as e:
@@ -45,7 +87,12 @@ def iterator_callback_broadcaster(iterator: Iterable, callbacks) -> List[Iterabl
         broadcast_cache(cache_value)
 
     def callback_on_cache(callback):
-        """Calls callback with cache values until cache is empty."""
+        """
+        Calls callback with cache values until cache is empty.
+
+        Args:
+            callback (function): The callback function to call.
+        """
         while True:
             if not broadcast[callback]:
                 with lock:
@@ -62,3 +109,8 @@ def iterator_callback_broadcaster(iterator: Iterable, callbacks) -> List[Iterabl
         executor.submit(callback_on_cache, callback)
 
     return callback_iters
+
+
+__all__ = [
+    "iterator_callback_broadcaster"
+]

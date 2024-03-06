@@ -35,12 +35,26 @@ CLASS_DICT = {
     'MessagesPlaceholder': MessagesPlaceholder
 }
 
-
 class Meta_v2(BaseModel):
+    """
+    A Pydantic model for meta data.
+
+    Attributes:
+        tags (list[str]): A list of tags for the meta data.
+    """
     tags: list[str] = Field(default_factory=list, description="The tags of the meta data")
 
 
 class _Scenario_v2(BaseModel):
+    """
+    A Pydantic model for scenario data used to generate GBNF grammar.
+
+    Attributes:
+        scenario_name (str): The name of the scenario.
+        scenario_description (str): The description of the scenario.
+        meta (Meta_v2): The meta data of the scenario.
+        type (str): The type of the scenario.
+    """
     scenario_name: str = Field(description="The name of the scenario")
     scenario_description: str = Field(description="The description of the scenario")
     meta: Meta_v2 = Field(default_factory=Meta_v2, description="The meta data of the scenario")
@@ -48,6 +62,26 @@ class _Scenario_v2(BaseModel):
 
 
 class Scenario(BaseModel_v1):
+    """
+    A Pydantic model for scenario data.
+
+    Attributes:
+        scenario_name (str): The name of the scenario.
+        scenario_description (str): The description of the scenario.
+        meta (dict): The meta data of the scenario.
+        type (str): The type of the scenario.
+
+    Methods:
+        create(description: str, llm): Creates a scenario.
+        from_mongo(scenario_name: str, mongo_url: str, mongo_db: str, mongo_collection: str): Retrieves a scenario from MongoDB.
+        to_mongo(mongo_url: str, mongo_db: str, mongo_collection: str): Stores a scenario in MongoDB.
+        from_url(url: str): Retrieves a scenario from a URL.
+        from_file(file_path: str): Retrieves a scenario from a file.
+        to_dict() -> dict: Returns a dictionary representation of the scenario.
+        to_json() -> str: Returns a JSON representation of the scenario.
+        to_file(file_path: str): Stores a scenario in a file.
+        from_dict(data: dict): Creates a scenario from a dictionary.
+    """
     scenario_name: str = Field_v1(description="The name of the scenario")
     scenario_description: str = Field_v1(description="The description of the scenario")
     meta: dict = Field_v1(default_factory=dict, description="The meta data of the scenario")
@@ -55,11 +89,32 @@ class Scenario(BaseModel_v1):
 
     @classmethod
     def create(cls, description: str, llm):
-        return LoboScenarioByChat.create(description, llm)
+        """
+        Creates a scenario.
+
+        Args:
+            description (str): The description of the scenario.
+            llm: The LlamaCpp instance.
+
+        Returns:
+            Scenario: The created scenario.
+        """
+        return CreateScenarioByChat.create(description, llm)
 
     @classmethod
     def from_mongo(cls, scenario_name: str, mongo_url: str = None, mongo_db: str = None, mongo_collection: str = None):
+        """
+        Retrieves a scenario from MongoDB.
 
+        Args:
+            scenario_name (str): The name of the scenario.
+            mongo_url (str, optional): The MongoDB URL. Defaults to None.
+            mongo_db (str, optional): The MongoDB database name. Defaults to None.
+            mongo_collection (str, optional): The MongoDB collection name. Defaults to None.
+
+        Returns:
+            Scenario: The retrieved scenario.
+        """
         if mongo_url is None:
             mongo_url = TextConfig.get_mongo_url()
         if mongo_db is None:
@@ -71,6 +126,17 @@ class Scenario(BaseModel_v1):
             client[mongo_db][mongo_collection].find_one({'scenario_name': scenario_name, 'type': "scenario"}))
 
     def to_mongo(self, mongo_url: str = None, mongo_db: str = None, mongo_collection: str = None):
+        """
+        Stores a scenario in MongoDB.
+
+        Args:
+            mongo_url (str, optional): The MongoDB URL. Defaults to None.
+            mongo_db (str, optional): The MongoDB database name. Defaults to None.
+            mongo_collection (str, optional): The MongoDB collection name. Defaults to None.
+
+        Returns:
+            UpdateResult: The result of the update operation.
+        """
         if mongo_url is None:
             mongo_url = TextConfig.get_mongo_url()
         if mongo_db is None:
@@ -87,14 +153,38 @@ class Scenario(BaseModel_v1):
 
     @classmethod
     def from_url(cls, url: str):
+        """
+        Retrieves a scenario from a URL.
+
+        Args:
+            url (str): The URL.
+
+        Returns:
+            Scenario: The retrieved scenario.
+        """
         return cls.from_dict(requests.get(url).json())
 
     @classmethod
     def from_file(cls, file_path: str):
+        """
+        Retrieves a scenario from a file.
+
+        Args:
+            file_path (str): The file path.
+
+        Returns:
+            Scenario: The retrieved scenario.
+        """
         with open(file_path, 'r') as f:
             return cls.from_dict(json.load(f))
 
     def to_dict(self):
+        """
+        Returns a dictionary representation of the scenario.
+
+        Returns:
+            dict: A dictionary representation of the scenario.
+        """
         return {
             "scenario_name": self.scenario_name,
             "scenario_description": self.scenario_description,
@@ -102,14 +192,35 @@ class Scenario(BaseModel_v1):
         }
 
     def to_json(self) -> str:
+        """
+        Returns a JSON representation of the scenario.
+
+        Returns:
+            str: A JSON representation of the scenario.
+        """
         return json.dumps(self.to_dict())
 
     def to_file(self, file_path: str):
+        """
+        Stores a scenario in a file.
+
+        Args:
+            file_path (str): The file path.
+        """
         with open(file_path, 'w') as f:
             f.write(self.to_json())
 
     @classmethod
     def from_dict(cls, data: dict):
+        """
+        Creates a scenario from a dictionary.
+
+        Args:
+            data (dict): The data dictionary.
+
+        Returns:
+            Scenario: The created scenario.
+        """
         data = data.copy()
 
         return Scenario(
@@ -117,9 +228,16 @@ class Scenario(BaseModel_v1):
             scenario_description=data['scenario_description'],
             meta=Meta_v2(**data['meta'])
         )
-
-
 class _Character_v2(BaseModel):
+    """
+    A Pydantic model for character data used to generate GBNF grammar.
+
+    Attributes:
+        character_name (str): The name of the character.
+        persona (str): The persona of the character.
+        meta (Meta_v2): The meta data of the character.
+        type (str): The type of the character.
+    """
     character_name: str = Field(description="The name of the character")
     persona: str = Field(description="The persona of the character")
     meta: Meta_v2 = Field(default_factory=Meta_v2, description="The meta data of the character")
@@ -127,18 +245,59 @@ class _Character_v2(BaseModel):
 
 
 class Character(BaseModel_v1):
+    """
+    A Pydantic model for character data.
+
+    Attributes:
+        character_name (str): The name of the character.
+        persona (str): The persona of the character.
+        meta (dict): The meta data of the character.
+        type (str): The type of the character.
+
+    Methods:
+        create(cls, description: str, llm): Creates a character.
+        from_mongo(cls, character_name: str, mongo_url: str = None, mongo_db: str = None, mongo_collection: str = None): Retrieves a character from MongoDB.
+        to_mongo(self, mongo_url: str = None, mongo_db: str = None, mongo_collection: str = None): Stores a character in MongoDB.
+        from_url(cls, url: str): Retrieves a character from a URL.
+        from_file(cls, file_path: str): Retrieves a character from a file.
+        to_dict(self) -> dict: Returns a dictionary representation of the character.
+        to_json(self) -> str: Returns a JSON representation of the character.
+        to_file(self, file_path: str): Stores a character in a file.
+        from_dict(cls, data: dict): Creates a character from a dictionary.
+    """
     character_name: str = Field_v1(description="The name of the character")
     persona: str = Field_v1(description="The persona of the character")
     meta: dict = Field_v1(default_factory=dict, description="The meta data of the character")
     type: str = "character"
 
     @classmethod
-    def create(cls, description, llm):
+    def create(cls, description: str, llm):
+        """
+        Creates a character.
+
+        Args:
+            description (str): The description of the character.
+            llm: The LlamaCpp instance.
+
+        Returns:
+            Character: The created character.
+        """
         return CreateCharacterByChat.create(description, llm)
 
     @classmethod
     def from_mongo(cls, character_name: str, mongo_url: str = None, mongo_db: str = None, mongo_collection: str = None):
+        """
+        Retrieves a character from MongoDB.
 
+        Args:
+            character_name (str): The name of the character.
+            mongo_url (str, optional): The MongoDB URL. Defaults to None.
+            mongo_db (str, optional): The MongoDB database name. Defaults to None.
+            mongo_collection (str, optional): The MongoDB collection name. Defaults to None.
+
+        Returns:
+            Character: The retrieved character.
+        """
         if mongo_url is None:
             mongo_url = TextConfig.get_mongo_url()
         if mongo_db is None:
@@ -150,6 +309,17 @@ class Character(BaseModel_v1):
             client[mongo_db][mongo_collection].find_one({'character_name': character_name, "type": "character"}))
 
     def to_mongo(self, mongo_url: str = None, mongo_db: str = None, mongo_collection: str = None):
+        """
+        Stores a character in MongoDB.
+
+        Args:
+            mongo_url (str, optional): The MongoDB URL. Defaults to None.
+            mongo_db (str, optional): The MongoDB database name. Defaults to None.
+            mongo_collection (str, optional): The MongoDB collection name. Defaults to None.
+
+        Returns:
+            UpdateResult: The result of the update operation.
+        """
         if mongo_url is None:
             mongo_url = TextConfig.get_mongo_url()
         if mongo_db is None:
@@ -166,30 +336,74 @@ class Character(BaseModel_v1):
 
     @classmethod
     def from_url(cls, url: str):
+        """
+        Retrieves a character from a URL.
+
+        Args:
+            url (str): The URL.
+
+        Returns:
+            Character: The retrieved character.
+        """
         return cls.from_dict(requests.get(url).json())
 
     @classmethod
     def from_file(cls, file_path: str):
+        """
+        Retrieves a character from a file.
+
+        Args:
+            file_path (str): The file path.
+
+        Returns:
+            Character: The retrieved character.
+        """
         with open(file_path, 'r') as f:
             return cls.from_dict(json.load(f))
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """
+        Returns a dictionary representation of the character.
+
+        Returns:
+            dict: A dictionary representation of the character.
+        """
         return {
             "character_name": self.character_name,
             "persona": self.persona,
             "meta": self.meta,
         }
 
-    def to_json(self):
+    def to_json(self) -> str:
+        """
+        Returns a JSON representation of the character.
+
+        Returns:
+            str: A JSON representation of the character.
+        """
         return json.dumps(self.to_dict())
 
     def to_file(self, file_path: str):
+        """
+        Stores a character in a file.
+
+        Args:
+            file_path (str): The file path.
+        """
         with open(file_path, 'w') as f:
             f.write(self.to_json())
 
     @classmethod
     def from_dict(cls, data: dict):
+        """
+        Creates a character from a dictionary.
 
+        Args:
+            data (dict): The data dictionary.
+
+        Returns:
+            Character: The created character.
+        """
         return Character(
             character_name=data['character_name'],
             persona=data['persona'],
@@ -198,12 +412,35 @@ class Character(BaseModel_v1):
 
 
 class LlamaCpp(Runnable):
+    """
+    A class that represents a LlamaCpp runnable.
+
+    Attributes:
+        client (LlamaCppClient): The LlamaCpp client.
+        chat_format (ChatFormat): The chat format.
+        model_kwargs (dict): The model keyword arguments.
+
+    Methods:
+        invoke(input: str | list | dict, config: Optional[RunnableConfig] = None, **kwargs) -> Output: Invokes the LlamaCpp client with the given input and returns the output.
+        stream(input: str | list | dict, config: Optional[RunnableConfig] = None, **kwargs: Optional[Any]) -> Iterator[Output]: Streams the LlamaCpp client with the given input and yields the output.
+    """
     def __init__(self, base_url=None, api_key=None, chat_format: ChatFormat = ChatFormat.Alpaca, **kwargs):
         self.client = LlamaCppClient(base_url, api_key)
         self.chat_format = chat_format
         self.model_kwargs = kwargs
 
     def invoke(self, input: str | list | dict, config: Optional[RunnableConfig] = None, **kwargs) -> Output:
+        """
+        Invokes the LlamaCpp client with the given input and returns the output.
+
+        Args:
+            input (str | list | dict): The input to invoke the LlamaCpp client with.
+            config (Optional[RunnableConfig]): The runnable config. Defaults to None.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Output: The output from the LlamaCpp client.
+        """
         if isinstance(input, (str, list)):
             input = {"prompt": input}
         return self.client.complete(input, **kwargs, **self.model_kwargs)['content']
@@ -214,6 +451,17 @@ class LlamaCpp(Runnable):
             config: Optional[RunnableConfig] = None,
             **kwargs: Optional[Any],
     ) -> Iterator[Output]:
+        """
+        Streams the LlamaCpp client with the given input and yields the output.
+
+        Args:
+            input (str | list | dict): The input to stream the LlamaCpp client with.
+            config (Optional[RunnableConfig]): The runnable config. Defaults to None.
+            **kwargs: Additional keyword arguments.
+
+        Yields:
+            Output: The output from the LlamaCpp client.
+        """
         if isinstance(input, (str, list)):
             input = {"prompt": input}
         for i in self.client.stream(input, **kwargs, **self.model_kwargs):
@@ -221,6 +469,29 @@ class LlamaCpp(Runnable):
 
 
 class Session(BaseModel_v1):
+    """
+    A class that represents a session.
+
+    Attributes:
+        session_id (str): The id of the session.
+        npc (Character): The non-player character.
+        player (Character): The player character.
+        scenario (Scenario): The scenario.
+        collection_name (str): The collection name.
+        chat_history_proxy (MongoDBChatMessageHistory): The chat history proxy.
+
+    Methods:
+        create(description: str, llm: LlamaCpp, session_id=None, collection_name="Session"): Creates a session.
+        from_mongo(session_id: str, collection_name: str = "Session"): Retrieves a session from MongoDB.
+        to_dict() -> dict: Returns a dictionary representation of the session.
+        from_dict(data: dict, session_id=None, collection_name="Session"): Creates a session from a dictionary.
+        from_file(file_path: str, session_id=None, collection_name="Session"): Retrieves a session from a file.
+        to_file(file_path: str): Stores a session in a file.
+        messages: Returns the messages of the session.
+        add_messages(messages): Adds messages to the session.
+        add_message(message): Adds a message to the session.
+        clear(): Clears the session.
+    """
     session_id: str = Field_v1(None, description="The id of the session")
     npc: Character = Field_v1(Character(character_name=TextConfig.get_npc_name(),
                                         persona=TextConfig.get_npc_persona()),
@@ -239,6 +510,15 @@ class Session(BaseModel_v1):
 
     @root_validator
     def bind_chat_history_proxy(cls, values):
+        """
+        Binds the chat history proxy to the session.
+
+        Args:
+            values (dict): The values of the session.
+
+        Returns:
+            dict: The values of the session with the chat history proxy bound.
+        """
         values['chat_history_proxy'] = MongoDBChatMessageHistory(
             connection_string=TextConfig.get_mongo_url(),
             database_name=TextConfig.get_mongo_db(),
@@ -248,11 +528,33 @@ class Session(BaseModel_v1):
 
     @classmethod
     def create(cls, description: str, llm: LlamaCpp, session_id=None, collection_name="Session"):
+        """
+        Creates a session.
+
+        Args:
+            description (str): The description of the session.
+            llm (LlamaCpp): The LlamaCpp instance.
+            session_id (str, optional): The id of the session. Defaults to None.
+            collection_name (str, optional): The collection name. Defaults to "Session".
+
+        Returns:
+            Session: The created session.
+        """
         return CreateSessionByChat.create(description=description, llm=llm, session_id=session_id,
                                           collection_name=collection_name)
 
     @classmethod
     def from_mongo(cls, session_id: str, collection_name: str = "Session"):
+        """
+        Retrieves a session from MongoDB.
+
+        Args:
+            session_id (str): The id of the session.
+            collection_name (str, optional): The collection name. Defaults to "Session".
+
+        Returns:
+            Session: The retrieved session.
+        """
         chat_history_proxy = MongoDBChatMessageHistory(
             connection_string=TextConfig.get_mongo_url(),
             database_name=TextConfig.get_mongo_db(),
@@ -274,12 +576,29 @@ class Session(BaseModel_v1):
             )
 
     def to_dict(self) -> dict:
+        """
+        Returns a dictionary representation of the session.
+
+        Returns:
+            dict: A dictionary representation of the session.
+        """
         result = self.chat_history_proxy.dict()
         result.pop("_id")
         return result
 
     @classmethod
     def from_dict(cls, data: dict, session_id=None, collection_name="Session"):
+        """
+        Creates a session from a dictionary.
+
+        Args:
+            data (dict): The data dictionary.
+            session_id (str, optional): The id of the session. Defaults to None.
+            collection_name (str, optional): The collection name. Defaults to "Session".
+
+        Returns:
+            Session: The created session.
+        """
         if session_id is not None:
             data['session_id'] = session_id
         session = cls(
@@ -294,28 +613,89 @@ class Session(BaseModel_v1):
 
     @classmethod
     def from_file(cls, file_path: str, session_id=None, collection_name="Session"):
+        """
+        Retrieves a session from a file.
+
+        Args:
+            file_path (str): The file path.
+            session_id (str, optional): The id of the session. Defaults to None.
+            collection_name (str, optional): The collection name. Defaults to "Session".
+
+        Returns:
+            Session: The retrieved session.
+        """
         with open(file_path, 'r') as f:
             return cls.from_dict(json.load(f), session_id, collection_name)
 
     def to_file(self, file_path: str):
+        """
+        Stores a session in a file.
+
+        Args:
+            file_path (str): The file path.
+        """
         with open(file_path, 'w') as f:
             f.write(json.dumps(self.to_dict()))
 
     @property
     def messages(self):
+        """
+        Returns the messages of the session.
+
+        Returns:
+            list: The messages of the session.
+        """
         return self.chat_history_proxy.messages
 
-    def add_messages(self, messages):
-        return self.chat_history_proxy.add_messages(messages)
+    def add_messages(self, messages) -> None:
+        """
+        Adds multiple messages to the session's chat history.
 
-    def add_message(self, message):
-        return self.chat_history_proxy.add_message(message)
+        Args:
+            messages (list): The list of messages to be added.
 
-    def clear(self):
-        return self.chat_history_proxy.clear()
+        Returns:
+            None
+        """
+        self.chat_history_proxy.add_messages(messages)
 
+    def add_message(self, message) -> None:
+        """
+        Adds a single message to the session's chat history.
 
+        Args:
+            message (Message): The message to be added.
+
+        Returns:
+            None
+        """
+        self.chat_history_proxy.add_message(message)
+
+    def clear(self) -> None:
+        """
+        Clears the session's chat history.
+
+        Returns:
+            None
+        """
+        self.chat_history_proxy.clear()
 class Chat(Runnable):
+    """
+    A class that represents a chat in a role-playing game.
+
+    Attributes:
+        llm (LlamaCpp | RunnableBinding): The LlamaCpp instance or a RunnableBinding.
+        session (Session): The session.
+        chat_prompt_template (ChatPromptTemplate): The chat prompt template.
+        response_prefix (str): The response prefix.
+        grammar (str): The grammar.
+        kwargs (dict): Additional keyword arguments.
+
+    Methods:
+        _get_chain_params(query: str, response_prefix: str = None, **kwargs): Gets the chain parameters.
+        invoke(input: dict | str, config: Optional[RunnableConfig] = None, **kwargs: Any) -> Output: Invokes the chat with the given input and returns the output.
+        stream(input: dict | str, config: Optional[RunnableConfig] = None, **kwargs: Any) -> Iterable[Output]: Streams the chat with the given input and yields the output.
+    """
 
     def __init__(self, llm: LlamaCpp | RunnableBinding,
                  session: Session,
@@ -343,9 +723,21 @@ class Chat(Runnable):
 
     def _get_chain_params(self, query: str, response_prefix: str = None,
                           **kwargs):
+        """
+        Gets the chain parameters.
+
+        Args:
+            query (str): The query.
+            response_prefix (str, optional): The response prefix. Defaults to None.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            tuple: The chain, parameters, and the function to update the chat history.
+        """
         if response_prefix is None:
             response_prefix = self.response_prefix
 
+        # Define the chain of operations
         chain = (
                 RunnableLambda(lambda x: (
                     self.chat_prompt_template.format_prompt(chat_history=messages_from_dict(x.pop('chat_history', [])),
@@ -383,6 +775,15 @@ class Chat(Runnable):
         kwargs['response_prefix'] = response_prefix
 
         def _update_chat_history(response_with_prefix):
+            """
+            Updates the chat history.
+
+            Args:
+                response_with_prefix (str): The response with prefix.
+
+            Returns:
+                None
+            """
             human_message = HumanMessage(content=f"{query}")
             ai_message = AIMessage(content=f"{response_with_prefix}")
             self.session.add_messages([
@@ -395,6 +796,17 @@ class Chat(Runnable):
     def invoke(
             self, input: dict | str, config: Optional[RunnableConfig] = None, **kwargs: Any
     ) -> Output:
+        """
+        Invokes the chat with the given input and returns the output.
+
+        Args:
+            input (dict | str): The input to invoke the chat with.
+            config (Optional[RunnableConfig]): The runnable config. Defaults to None.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Output: The output from the chat.
+        """
         stream = self.stream(input, config, **kwargs)
         result = ''
         for i in stream:
@@ -407,6 +819,17 @@ class Chat(Runnable):
             config: Optional[RunnableConfig] = None,
             **kwargs: Any
     ) -> Iterable[Output]:
+        """
+        Streams the chat with the given input and yields the output.
+
+        Args:
+            input (dict | str): The input to stream the chat with.
+            config (Optional[RunnableConfig]): The runnable config. Defaults to None.
+            **kwargs: Additional keyword arguments.
+
+        Yields:
+            Output: The output from the chat.
+        """
         params = {}
         if isinstance(input, str):
             input = {'query': input}
@@ -422,7 +845,7 @@ class Chat(Runnable):
         )
 
 
-class LoboScenarioByChat:
+class CreateScenarioByChat:
     format_instructions = PydanticOutputParser(pydantic_object=Scenario).get_format_instructions()
     prompt_template = ChatPromptTemplate.from_messages([
         HumanMessage(content="""a scenario in intimacy"""),
@@ -467,8 +890,20 @@ Examples:
         result['type'] = 'scenario'
         return Scenario(**result)
 
-
 class CreateCharacterByChat:
+    """
+    A class that creates a character by chat.
+
+    Attributes:
+        format_instructions (str): The format instructions for the character.
+        prompt_template (ChatPromptTemplate): The chat prompt template.
+        player (Character): The player character.
+        npc (Character): The non-player character (NPC).
+        scenario (Scenario): The scenario.
+
+    Methods:
+        create(cls, description: str, llm: LlamaCpp): Creates a character by chat.
+    """
     format_instructions = PydanticOutputParser(pydantic_object=Character).get_format_instructions()
     prompt_template = ChatPromptTemplate.from_messages([HumanMessage(content="""a furry character"""),
                                                         AIMessage(
@@ -497,7 +932,17 @@ Examples:
     )
 
     @classmethod
-    def create(cls, description, llm):
+    def create(cls, description: str, llm: LlamaCpp):
+        """
+        Creates a character by chat.
+
+        Args:
+            description (str): The description of the character.
+            llm (LlamaCpp): The LlamaCpp instance.
+
+        Returns:
+            Character: The created character.
+        """
         session = Session(session_id="CharactorCreation",
                           collection_name="System",
                           npc=cls.npc,
@@ -516,16 +961,40 @@ Examples:
         result['meta'] = Meta_v2(**result.get('meta', {}))
         result['type'] = 'character'
         return Character(**result)
-
-
 class _Session_v2(BaseModel):
+    """
+    A Pydantic model for session data used to generate GBNF grammar.
+
+    Attributes:
+        npc (_Character_v2): The non-player character (NPC) in the session.
+        player (_Character_v2): The player character in the session.
+        scenario (_Scenario_v2): The scenario of the session.
+    """
     npc: _Character_v2 = Field(description="Characteristics of the npc")
     player: _Character_v2 = Field(description="Characteristics of the player")
     scenario: _Scenario_v2 = Field(description="Characteristics of the scenario")
-
-
 class CreateSessionByChat:
+    """
+    A class that creates a session by chat.
+
+    Attributes:
+        _Session (BaseModel_v1): A Pydantic model for session data.
+        format_instructions (str): The format instructions for the session.
+        prompt_template (ChatPromptTemplate): The chat prompt template.
+        player (Character): The player character.
+        npc (Character): The non-player character (NPC).
+        scenario (Scenario): The scenario.
+    """
+
     class _Session(BaseModel_v1):
+        """
+        A Pydantic model for session data.
+
+        Attributes:
+            npc (Character): The non-player character (NPC) in the session.
+            player (Character): The player character in the session.
+            scenario (Scenario): The scenario of the session.
+        """
         npc: Character = Field_v1(None, description="Characteristics of the npc")
         player: Character = Field_v1(None, description="Characteristics of the player")
         scenario: Scenario = Field_v1(None, description="Characteristics of the scenario")
@@ -563,7 +1032,17 @@ Examples:
     )
 
     @classmethod
-    def create(cls, description, llm, session_id=None, collection_name="Session"):
+    def create(cls, description, llm, session_id=None, collection_name="Session") -> Session:
+        """
+        Creates a session by chat.
+
+        Args:
+            description (str): The description of the character.
+            llm (LlamaCpp): The LlamaCpp instance.
+
+        Returns:
+            Session: The created session.
+        """
         session = Session(session_id="CharactorCreation",
                           collection_name="System",
                           npc=cls.npc,
@@ -589,3 +1068,12 @@ Examples:
             scenario=scenario,
             collection_name=collection_name
         )
+
+
+__all__ = [
+    "LlamaCpp",
+    "Chat",
+    "Session",
+    "Character",
+    "Scenario"
+]
