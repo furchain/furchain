@@ -1,6 +1,6 @@
 from furchain.audio.conversion.rvc import RVC
 from furchain.audio.utils.audio_editor import AudioEditor
-from furchain.audio.utils.audio_seperator import AudioSeparator
+from furchain.audio.utils.audio_separator import AudioSeparator
 from furchain.audio.utils.play import play_audio_bytes
 
 music = "blackpink.mp3"
