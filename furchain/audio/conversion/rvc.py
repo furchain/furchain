@@ -58,7 +58,7 @@ class RVC(VC):
             bytes: The converted audio in bytes.
         """
         data = {
-            "speaker": self.speaker,
+            "model_name": self.speaker,
             "index_path": self.index_path,
             "f0up_key": self.f0up_key,
             "f0method": self.f0method,
