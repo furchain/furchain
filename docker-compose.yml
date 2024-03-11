@@ -8,7 +8,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ./data/mongo:/data/db
+      - mongodata:/data/db
 
   text-llama-cpp:
     image: ghcr.io/ggerganov/llama.cpp:server-cuda
@@ -61,3 +61,6 @@ services:
             - driver: nvidia
               count: all
               capabilities: [ gpu ]
+
+volumes:
+  mongodata:
