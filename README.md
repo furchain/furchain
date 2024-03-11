@@ -57,7 +57,7 @@ This spins up 5 containers, each serving a unique purpose:
 You can use docker to have a quick glance at the capabilities of FurChain:
 
 ```bash
-docker run --rm --gpus all --network host -v ./data:/app/data -it markyfsun/furchain python3 examples/adventure_with_fox.py
+docker run --rm --gpus all --network host -v $PWD/data:/app/data -it markyfsun/furchain python3 examples/adventure_with_fox.py
 ```
 
 The `data` directory serves as the central hub for your models, audio files, and chat logs:
