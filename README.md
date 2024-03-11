@@ -65,7 +65,6 @@ The `data` directory serves as the central hub for your models, audio files, and
 - `gpt-sovits`: Holds reference audio for speech generation.
 - `llama-cpp`: Contains LLM GGUF files available for download
   from [huggingface](https://huggingface.co/models?search=gguf).
-- `mongo`: Archives chat history.
 - `rvc`: Stores models for voice conversion.
 
 Should you wish to contribute or customize `furchain`, clone this repository and install it as an editable package:
