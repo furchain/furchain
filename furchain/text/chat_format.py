@@ -271,9 +271,9 @@ class ChatMLChatFormatParser(ChatFormatParser):
         parse(chat_prompt_value: ChatPromptValue): Parses a chat prompt value in the ChatML format.
     """
 
-    _sep = "<|im_""end|>"  # This special token prevents copilot from generating complete response, so I split it into two parts
-    _human_prefix = "<|im_start|>user"
-    _ai_prefix = "<|im_start|>assistant"
+    _sep = "<|im_""end|>\n"  # This special token prevents copilot from generating complete response, so I split it into two parts
+    _human_prefix = "<|im_start|>user\n"
+    _ai_prefix = "<|im_start|>assistant\n"
     stop = ["<|im_""end|>"]
 
     @classmethod
@@ -293,12 +293,12 @@ class ChatMLChatFormatParser(ChatFormatParser):
         Finally, it appends the AI prefix to the prompt and returns it.
         """
         messages = chat_prompt_value.messages
-        prompt = "<|im_start|>system"
+        prompt = "<|im_start|>system\n"
         system_message = ''
         if len(messages) > 0 and isinstance(messages[0], SystemMessage):
             system_message = messages[0].content
             messages = messages[1:]
-        prompt = system_message + self._sep + prompt
+        prompt = prompt + system_message + self._sep
         for idx, i in enumerate(messages):
             if isinstance(i, HumanMessage):
                 prompt += self._human_prefix + i.content + self._sep
@@ -307,6 +307,48 @@ class ChatMLChatFormatParser(ChatFormatParser):
         prompt += self._ai_prefix  # + response_prefix
         return prompt
 
+
+class QwenChatFormatParser(ChatMLChatFormatParser):
+    """
+    Chat format parser for the Qwen format.
+
+    This class inherits from the ChatMLChatFormatParser and overrides the stop attribute.
+
+    Attributes:
+        stop (list): List of stop words or phrases. In this case, it's the end of text token.
+    """
+    stop = ["<|""endoftext|>"]
+
+    @classmethod
+    def parse(self, chat_prompt_value: ChatPromptValue) -> str:
+        """
+        Parses a chat prompt value in the ChatML format.
+
+        Args:
+            chat_prompt_value (ChatPromptValue): The chat prompt value to parse.
+
+        Returns:
+            str: The parsed chat prompt value.
+
+        The method starts by initializing the prompt with a system message.
+        Then it iterates over the messages in the chat prompt value.
+        For each message, it checks the type of the message (HumanMessage or AIMessage) and appends the content of the message to the prompt with the appropriate prefix.
+        Finally, it appends the AI prefix to the prompt and returns it.
+        """
+        messages = chat_prompt_value.messages
+        prompt = "<|im_start|>system\n"
+        system_message = ''
+        if len(messages) > 0 and isinstance(messages[0], SystemMessage):
+            system_message = messages[0].content
+            messages = messages[1:]
+        prompt = prompt + system_message + self._sep
+        for idx, i in enumerate(messages):
+            if isinstance(i, HumanMessage):
+                prompt += self._human_prefix + i.content + self._sep
+            elif isinstance(i, AIMessage):
+                prompt += self._ai_prefix + i.content + self._sep
+        prompt += self._ai_prefix  # + response_prefix
+        return prompt
 
 class ChatFormat(enum.Enum):
     """
@@ -319,6 +361,7 @@ class ChatFormat(enum.Enum):
         ChatML (str): ChatML chat format.
         Llama2 (str): Llama2 chat format.
         Vicuna (str): Vicuna chat format.
+        Qwen (str): Qwen chat format.
 
     Methods:
         parser: Returns the appropriate chat format parser for the chat format.
@@ -330,6 +373,7 @@ class ChatFormat(enum.Enum):
     ChatML = 'ChatML'
     Llama2 = 'Llama2'
     Vicuna = 'Vicuna'
+    Qwen = 'Qwen'
 
     @property
     def parser(self) -> ChatFormatParser:
@@ -338,24 +382,16 @@ class ChatFormat(enum.Enum):
 
         Returns:
             ChatFormatParser: The chat format parser.
-
-        Raises:
-            NotImplementedError: If the chat format is not supported.
         """
-        if self == ChatFormat.Alpaca:
-            return AlpacaChatFormatParser()
-        elif self == ChatFormat.ExtendedAlpaca:
-            return ExtendedAlpacaChatFormatParser()
-        elif self == ChatFormat.LimaRPExtendedAlpaca:
-            return LimaRPExtendedAlpacaChatFormatParser()
-        elif self == ChatFormat.ChatML:
-            return ChatMLChatFormatParser()
-        elif self == ChatFormat.Llama2:
-            return Llama2ChatFormatParser()
-        elif self == ChatFormat.Vicuna:
-            return VicunaChatFormatParser()
-        else:
-            raise NotImplementedError
+        return {
+            ChatFormat.Alpaca: AlpacaChatFormatParser,
+            ChatFormat.ExtendedAlpaca: ExtendedAlpacaChatFormatParser,
+            ChatFormat.LimaRPExtendedAlpaca: LimaRPExtendedAlpacaChatFormatParser,
+            ChatFormat.ChatML: ChatMLChatFormatParser,
+            ChatFormat.Llama2: Llama2ChatFormatParser,
+            ChatFormat.Vicuna: VicunaChatFormatParser,
+            ChatFormat.Qwen: QwenChatFormatParser
+        }[self]()
 
 
 __all__ = [
