@@ -33,6 +33,10 @@ services:
       - "9880:9880"
     volumes:
       - "./data/gpt-sovits:/ref"
+    environment:
+      - SOVITS_MODEL_PATH=/models/s2G488k.pth
+      - GPT_MODEL_PATH=/models/s1bert25hz-2kh-longer-epoch=68e-step=50232.ckpt
+
     deploy:
       resources:
         reservations:
@@ -54,6 +58,30 @@ services:
       - "8001:8001"
     volumes:
       - "./data/rvc:/app/assets/weights"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+
+  image-stable-diffusion-webui:
+    image: markyfsun/stable-diffusion-webui
+    restart: unless-stopped
+    command: --no-half --no-half-vae --precision full --api
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data/stable-diffusion-webui/inputs:/app/stable-diffusion-webui/inputs
+      - ./data/stable-diffusion-webui/textual_inversion_templates:/app/stable-diffusion-webui/textual_inversion_templates
+      - ./data/stable-diffusion-webui/embeddings:/app/stable-diffusion-webui/embeddings
+      - ./data/stable-diffusion-webui/extensions:/app/stable-diffusion-webui/extensions
+      - ./data/stable-diffusion-webui/models:/app/stable-diffusion-webui/models
+      - ./data/stable-diffusion-webui/localizations:/app/stable-diffusion-webui/localizations
+      - ./data/stable-diffusion-webui/outputs:/app/stable-diffusion-webui/outputs
+    stop_signal: SIGKILL
+    tty: true
     deploy:
       resources:
         reservations:

@@ -1,0 +1,1 @@
+from .funasr import FunASR
