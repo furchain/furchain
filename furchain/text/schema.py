@@ -687,12 +687,11 @@ class Chat(Runnable):
         llm (LlamaCpp | RunnableBinding): The LlamaCpp instance or a RunnableBinding.
         session (Session): The session.
         chat_prompt_template (ChatPromptTemplate): The chat prompt template.
-        response_prefix (str): The response prefix.
         grammar (str): The grammar.
         kwargs (dict): Additional keyword arguments.
 
     Methods:
-        _get_chain_params(query: str, response_prefix: str = None, **kwargs): Gets the chain parameters.
+        _get_chain_params(query: str, **kwargs): Gets the chain parameters.
         invoke(input: dict | str, config: Optional[RunnableConfig] = None, **kwargs: Any) -> Output: Invokes the chat with the given input and returns the output.
         stream(input: dict | str, config: Optional[RunnableConfig] = None, **kwargs: Any) -> Iterable[Output]: Streams the chat with the given input and yields the output.
     """
@@ -700,12 +699,11 @@ class Chat(Runnable):
     def __init__(self, llm: LlamaCpp | RunnableBinding,
                  session: Session,
                  chat_prompt_template: ChatPromptTemplate = None,
-                 response_prefix: str = None,
-                 grammar: str = '',
+                 grammar: str = None,
                  **kwargs):
         super().__init__()
-        if response_prefix is None:
-            response_prefix = session.npc.character_name + ':'
+        if grammar is None:
+            grammar = r'''root ::= "''' + session.npc.character_name + r''':" [^\x00-\x10FFFF]*'''
         if isinstance(llm, RunnableBinding):
             model_kwargs = llm.kwargs
             llm = llm.bound
@@ -718,24 +716,20 @@ class Chat(Runnable):
         self.llm = llm.bind(stop=model_kwargs.get("stop", []) + chat_format_parser.stop, grammar=grammar)
         self.chat_format_parser = chat_format_parser
         self.session = session
-        self.response_prefix = response_prefix
         self.chat_prompt_template = chat_prompt_template if chat_prompt_template is not None else ROLEPLAY_CHAT_PROMPT_TEMPLATE
 
-    def _get_chain_params(self, query: str, response_prefix: str = None,
+    def _get_chain_params(self, query: str,
                           **kwargs):
         """
         Gets the chain parameters.
 
         Args:
             query (str): The query.
-            response_prefix (str, optional): The response prefix. Defaults to None.
             **kwargs: Additional keyword arguments.
 
         Returns:
             tuple: The chain, parameters, and the function to update the chat history.
         """
-        if response_prefix is None:
-            response_prefix = self.response_prefix
 
         # Define the chain of operations
         chain = (
@@ -744,7 +738,7 @@ class Chat(Runnable):
                                                             **x)
                 ))
                 | RunnableLambda(self.chat_format_parser.parse)
-                | RunnableLambda(lambda x: (logger.debug("Prompt: " + x + response_prefix), x + response_prefix)[1])
+                | RunnableLambda(lambda x: (logger.debug("Prompt: " + x), x)[1])
                 | self.llm
         )
         if "chat_history" in self.chat_prompt_template.input_variables:
@@ -772,7 +766,6 @@ class Chat(Runnable):
             player_name=self.session.player.character_name)
         kwargs['query'] = query
         kwargs['chat_history'] = chat_history
-        kwargs['response_prefix'] = response_prefix
 
         def _update_chat_history(response_with_prefix):
             """
@@ -841,7 +834,6 @@ class Chat(Runnable):
         yield from StrChunkCallbackIterator(
             iterable=stream,
             callbacks=[_update_chat_history],
-            response_prefix=params['response_prefix'],
         )
 
 
@@ -882,7 +874,6 @@ Examples:
             session=session,
             chat_prompt_template=NO_HISTORY_CHAT_PROMPT_TEMPLATE,
             grammar=json_schema_to_gbnf(json.dumps(_Scenario_v2.model_json_schema()).replace("allOf", "oneOf")),
-            response_prefix=''
         )
         result = chat.invoke(description)
         result = json.loads(result)
@@ -954,7 +945,6 @@ Examples:
             session=session,
             chat_prompt_template=NO_HISTORY_CHAT_PROMPT_TEMPLATE,
             grammar=json_schema_to_gbnf(json.dumps(_Character_v2.model_json_schema()).replace("allOf", "oneOf")),
-            response_prefix=''
         )
         result = chat.invoke(description)
         result = json.loads(result)
@@ -1054,7 +1044,6 @@ Examples:
             session=session,
             chat_prompt_template=NO_HISTORY_CHAT_PROMPT_TEMPLATE,
             grammar=json_schema_to_gbnf(json.dumps(_Session_v2.model_json_schema()).replace("allOf", "oneOf")),
-            response_prefix=''
         )
         result = chat.invoke(description)
         result = json.loads(result)

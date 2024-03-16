@@ -1,7 +1,7 @@
 import abc
 import enum
 
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, FunctionMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_core.prompt_values import ChatPromptValue
 
 
@@ -347,7 +347,6 @@ class QwenChatFormatParser(ChatMLChatFormatParser):
                 prompt += self._human_prefix + i.content + self._sep
             elif isinstance(i, AIMessage):
                 prompt += self._ai_prefix + i.content + self._sep
-            # TODO: AddFunctionMessage
         prompt += self._ai_prefix  # + response_prefix
         return prompt
 
