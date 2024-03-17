@@ -257,6 +257,7 @@ class LimaRPExtendedAlpacaChatFormatParser(ExtendedAlpacaChatFormatParser):
             '### Response:') + '### Response: (length = ' + cls.length + ')\n'
         return prompt
 
+
 class ChatMLChatFormatParser(ChatFormatParser):
     """
     Chat format parser for the ChatML format.
@@ -349,6 +350,7 @@ class QwenChatFormatParser(ChatMLChatFormatParser):
                 prompt += self._ai_prefix + i.content + self._sep
         prompt += self._ai_prefix  # + response_prefix
         return prompt
+
 
 class ChatFormat(enum.Enum):
     """

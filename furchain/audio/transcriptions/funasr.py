@@ -18,6 +18,7 @@ from furchain.utils.iterator import BufferIterator
 
 END_MESSAGE = json.dumps({"is_speaking": False})
 
+
 class FunASRSession:
     """
     This class represents a session with the FunASR API.

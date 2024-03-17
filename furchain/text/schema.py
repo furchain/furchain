@@ -6,6 +6,7 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.messages import SystemMessage, messages_from_dict
 from langchain_core.messages import messages_to_dict
+from langchain_core.prompt_values import ChatPromptValue
 from langchain_core.prompts import AIMessagePromptTemplate, \
     MessagesPlaceholder
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate
@@ -22,8 +23,10 @@ from furchain.config import TextConfig
 from furchain.text.callbacks import StrChunkCallbackIterator
 from furchain.text.chat_format import ChatFormat
 from furchain.text.chat_message_history import MongoDBChatMessageHistory, logger
-from furchain.text.chat_prompt_templates import ROLEPLAY_CHAT_PROMPT_TEMPLATE, NO_HISTORY_CHAT_PROMPT_TEMPLATE
+from furchain.text.chat_prompt_templates import ROLEPLAY_CHAT_PROMPT_TEMPLATE, NO_HISTORY_CHAT_PROMPT_TEMPLATE, \
+    ROLEPLAY_WITH_TOOLS_CHAT_PROMPT_TEMPLATE
 from furchain.text.llama_cpp_client import LlamaCppClient
+from furchain.text.tools import ToolSymbol, Tool, ToolCall
 
 CLASS_DICT = {
     'HumanMessagePromptTemplate': HumanMessagePromptTemplate,
@@ -34,6 +37,7 @@ CLASS_DICT = {
     'SystemMessage': SystemMessage,
     'MessagesPlaceholder': MessagesPlaceholder
 }
+
 
 class Meta_v2(BaseModel):
     """
@@ -228,6 +232,8 @@ class Scenario(BaseModel_v1):
             scenario_description=data['scenario_description'],
             meta=Meta_v2(**data['meta'])
         )
+
+
 class _Character_v2(BaseModel):
     """
     A Pydantic model for character data used to generate GBNF grammar.
@@ -424,6 +430,7 @@ class LlamaCpp(Runnable):
         invoke(input: str | list | dict, config: Optional[RunnableConfig] = None, **kwargs) -> Output: Invokes the LlamaCpp client with the given input and returns the output.
         stream(input: str | list | dict, config: Optional[RunnableConfig] = None, **kwargs: Optional[Any]) -> Iterator[Output]: Streams the LlamaCpp client with the given input and yields the output.
     """
+
     def __init__(self, base_url=None, api_key=None, chat_format: ChatFormat = ChatFormat.Alpaca, **kwargs):
         self.client = LlamaCppClient(base_url, api_key)
         self.chat_format = chat_format
@@ -441,6 +448,8 @@ class LlamaCpp(Runnable):
         Returns:
             Output: The output from the LlamaCpp client.
         """
+        if isinstance(input, ChatPromptValue):
+            input = self.chat_format.parser.parse(input)
         if isinstance(input, (str, list)):
             input = {"prompt": input}
         return self.client.complete(input, **kwargs, **self.model_kwargs)['content']
@@ -462,6 +471,8 @@ class LlamaCpp(Runnable):
         Yields:
             Output: The output from the LlamaCpp client.
         """
+        if isinstance(input, ChatPromptValue):
+            input = self.chat_format.parser.parse(input)
         if isinstance(input, (str, list)):
             input = {"prompt": input}
         for i in self.client.stream(input, **kwargs, **self.model_kwargs):
@@ -679,6 +690,8 @@ class Session(BaseModel_v1):
             None
         """
         self.chat_history_proxy.clear()
+
+
 class Chat(Runnable):
     """
     A class that represents a chat in a role-playing game.
@@ -700,10 +713,11 @@ class Chat(Runnable):
                  session: Session,
                  chat_prompt_template: ChatPromptTemplate = None,
                  grammar: str = None,
+                 tools: list[Tool] = None,
                  **kwargs):
         super().__init__()
         if grammar is None:
-            grammar = r'''root ::= "''' + session.npc.character_name + r''':" [^\x00-\x10FFFF]*'''
+            grammar = r'''root ::= "''' + session.npc.character_name + r''':" [\x00-\x10FFFF]*'''  # Start with the npc's name, followed by any characters
         if isinstance(llm, RunnableBinding):
             model_kwargs = llm.kwargs
             llm = llm.bound
@@ -711,12 +725,25 @@ class Chat(Runnable):
             model_kwargs = llm.model_kwargs
         chat_format = llm.chat_format
         self.kwargs = kwargs
+        self.tools = tools
         chat_format_parser = chat_format.parser if isinstance(chat_format, ChatFormat) else ChatFormat(
             chat_format).parser
+        if self.tools:
+            tool_names = ' | '.join(i.tool_name for i in self.tools)
+            root_grammar = f'''root ::= anything+ (tool | anything)+\n''' + f'''tool ::= ({tool_names})+ "{ToolSymbol.TOOL_END.value.encode('unicode-escape').decode('utf-8')}"\n''' + r'''anything ::= [^''' + ToolSymbol.TOOL_NAME.value.encode(
+                'unicode-escape').decode('utf-8') + ToolSymbol.TOOL_END.value.encode('unicode-escape').decode(
+                'utf-8') + r''']'''
+            param_grammar = '\n '.join(i.grammar for i in self.tools)
+            grammar = root_grammar + '\n' + param_grammar
         self.llm = llm.bind(stop=model_kwargs.get("stop", []) + chat_format_parser.stop, grammar=grammar)
         self.chat_format_parser = chat_format_parser
         self.session = session
-        self.chat_prompt_template = chat_prompt_template if chat_prompt_template is not None else ROLEPLAY_CHAT_PROMPT_TEMPLATE
+
+        if chat_prompt_template is None:
+            if self.tools:
+                self.chat_prompt_template = ROLEPLAY_WITH_TOOLS_CHAT_PROMPT_TEMPLATE
+            else:
+                self.chat_prompt_template = ROLEPLAY_CHAT_PROMPT_TEMPLATE
 
     def _get_chain_params(self, query: str,
                           **kwargs):
@@ -732,14 +759,13 @@ class Chat(Runnable):
         """
 
         # Define the chain of operations
-        chain = (
+        prompt_template = (
                 RunnableLambda(lambda x: (
                     self.chat_prompt_template.format_prompt(chat_history=messages_from_dict(x.pop('chat_history', [])),
                                                             **x)
                 ))
                 | RunnableLambda(self.chat_format_parser.parse)
                 | RunnableLambda(lambda x: (logger.debug("Prompt: " + x), x)[1])
-                | self.llm
         )
         if "chat_history" in self.chat_prompt_template.input_variables:
             history_messages = self.session.messages
@@ -766,25 +792,27 @@ class Chat(Runnable):
             player_name=self.session.player.character_name)
         kwargs['query'] = query
         kwargs['chat_history'] = chat_history
+        if self.tools:
+            kwargs['tools'] = "\n".join([f"{i.tool_name}: {i.tool_description}" for i in self.tools])
 
-        def _update_chat_history(response_with_prefix):
+        def _update_chat_history(response):
             """
             Updates the chat history.
 
             Args:
-                response_with_prefix (str): The response with prefix.
+                response (str): The response from AI.
 
             Returns:
                 None
             """
             human_message = HumanMessage(content=f"{query}")
-            ai_message = AIMessage(content=f"{response_with_prefix}")
+            ai_message = AIMessage(content=f"{response}")
             self.session.add_messages([
                 human_message,
                 ai_message
             ])
 
-        return chain, kwargs, _update_chat_history
+        return prompt_template, kwargs, _update_chat_history
 
     def invoke(
             self, input: dict | str, config: Optional[RunnableConfig] = None, **kwargs: Any
@@ -828,13 +856,54 @@ class Chat(Runnable):
             input = {'query': input}
         params.update(input)
         params.update(kwargs)
-        chain, params, _update_chat_history = self._get_chain_params(**params)
-        stream = chain.stream(params, config)
+        prompt_template, params, _update_chat_history = self._get_chain_params(**params)
+        prompt_template: ChatPromptTemplate
+        chain = prompt_template | self.llm
+        stream = chain.stream(params)
         logger.debug(f"stream input: {params}")
-        yield from StrChunkCallbackIterator(
-            iterable=stream,
-            callbacks=[_update_chat_history],
-        )
+        if not self.tools:
+            yield from StrChunkCallbackIterator(
+                iterable=stream,
+                callbacks=[_update_chat_history],
+            )
+        else:
+            iterator = StrChunkCallbackIterator(
+                iterable=stream,
+                callbacks=[_update_chat_history],
+            )
+            hidden = False
+            buffer = ''
+            for token in iterator:
+                if ToolSymbol.TOOL_NAME.value in token:
+                    buffer += token
+                    hidden = True
+
+                elif ToolSymbol.TOOL_END.value in token:  # meet a tool call end, then look back to extract
+                    buffer += token
+                    print("---shift---")
+                    tool_calls = ToolCall.from_string(iterator.content)
+                    for tool_call in tool_calls:
+                        result = tool_call.execute()
+                        iterator.content = iterator.content.replace(tool_call.source,
+                                                                    tool_call.source.strip() + ToolSymbol.TOOL_OUTPUT.value + result)
+                        print(buffer)
+                        buffer = buffer.replace(tool_call.source,
+                                                tool_call.source.strip() + ToolSymbol.TOOL_OUTPUT.value + result)
+                    prompt = prompt_template.invoke(params)
+                    prompt += iterator.content
+                    new_stream = self.llm.stream(prompt)
+                    from itertools import chain
+                    new_iterator = StrChunkCallbackIterator(
+                        iterable=chain(buffer, new_stream),
+                        callbacks=[_update_chat_history]
+                    )
+                    new_iterator.content = iterator.content
+                    yield from new_iterator
+                    break  # should not reach here
+                elif not hidden:
+                    yield token
+                else:
+                    buffer += token
 
 
 class CreateScenarioByChat:
@@ -880,6 +949,7 @@ Examples:
         result['meta'] = Meta_v2(**result.get('meta', {}))
         result['type'] = 'scenario'
         return Scenario(**result)
+
 
 class CreateCharacterByChat:
     """
@@ -951,6 +1021,8 @@ Examples:
         result['meta'] = Meta_v2(**result.get('meta', {}))
         result['type'] = 'character'
         return Character(**result)
+
+
 class _Session_v2(BaseModel):
     """
     A Pydantic model for session data used to generate GBNF grammar.
@@ -963,6 +1035,8 @@ class _Session_v2(BaseModel):
     npc: _Character_v2 = Field(description="Characteristics of the npc")
     player: _Character_v2 = Field(description="Characteristics of the player")
     scenario: _Scenario_v2 = Field(description="Characteristics of the scenario")
+
+
 class CreateSessionByChat:
     """
     A class that creates a session by chat.

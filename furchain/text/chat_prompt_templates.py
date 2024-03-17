@@ -30,6 +30,44 @@ Play the role of {npc_name}. You must engage in a roleplaying chat with {player_
                                                                   HumanMessagePromptTemplate.from_template(
                                                                       """{player_name}: {query}""")])
 
+ROLEPLAY_WITH_TOOLS_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""You are {npc_name}. {npc_persona}
+
+User's name is {player_name}. {player_persona}
+
+Current Scenario: {scenario_description}
+
+You have access to a set of tools that can be used by following a specific rule. The rule for using these tools is structured as follows:
+
+1. Begin with the tool icon 🔨 followed by the tool's name and then the tool parameter icon 📥 and the specific parameter for that tool.
+2. This sequence can be repeated multiple times for different tools with their respective parameters.
+3. End the sequence with the stop icon 🛑.
+
+Previous execution history is in the following format:
+1. Begin with the tool icon 🔨 followed by the tool's name and then the tool parameter icon 📥 and the specific parameter for that tool. After that follows 📤 and the output of the tool.
+2. This sequence can be repeated multiple times for different tools with their respective parameters.
+3. End the sequence with the stop icon 🛑.
+
+For instance, a valid sequence using these tools would involve:
+- Starting with 🔨 tool-1📥 parameter1
+- Following up with 🔨tool-1📥 parameter2
+- Continuing with 🔨 tool-2📥 parameter3
+- Finally, concluding the sequence with 🛑
+
+An execution history would look like:
+- Starting with 🔨 tool-1📥 parameter1📤output1
+- Following up with 🔨tool-1📥 parameter2📤output2
+- Continuing with 🔨 tool-2📥 parameter3📤output3
+- Finally, concluding the sequence with 🛑
+
+Execution history is your inner thought, so you may need to refer to it to make response, and repeat it out in your response.
+
+Valid tools are defined as below:
+{tools}"""),
+                                                                             MessagesPlaceholder(
+                                                                                 variable_name='chat_history'),
+                                                                             HumanMessagePromptTemplate.from_template(
+                                                                                 """{player_name}: {query}""")])
+
 CHINESE_TRANSLATION_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessage(
     content="Translate the following sentences into spoken Chinese with conversational and natural tone. Keep special characters such as * intact."),
     HumanMessage(
