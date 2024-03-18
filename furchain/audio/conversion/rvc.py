@@ -46,7 +46,7 @@ class RVC(VC):
             api = AudioConfig.get_rvc_api()
         self.api = api
 
-    def run(self, audio_bytes: bytes) -> bytes:
+    def run(self, audio_bytes: bytes, **kwargs) -> bytes:
         """
         This method sends a POST request to the RVC API with the necessary parameters and the audio file.
         It then returns the response content which is the converted audio.
@@ -70,6 +70,7 @@ class RVC(VC):
             "rms_mix_rate": self.rms_mix_rate,
             "protect": self.protect,
         }
+        data.update(kwargs)
         files = {
             "input_file": audio_bytes,
         }

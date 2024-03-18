@@ -13,7 +13,11 @@ class TTS(Runnable, metaclass=abc.ABCMeta):
     It inherits from the Runnable class and uses the ABCMeta metaclass to enforce the implementation
     of the abstract methods in any concrete subclass.
     """
-    ...
+
+    def invoke(self, input: dict | str, config: Optional[RunnableConfig] = None) -> Output:
+        if isinstance(input, str):
+            input = {"text": input}
+        return self.run(**input)
 
 
 class VC(Runnable, metaclass=abc.ABCMeta):

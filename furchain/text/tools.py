@@ -27,18 +27,17 @@ class ToolValidator(ABCMeta):
         tool_name = attrs['tool_name']
         grammar = attrs['grammar']
 
-        assert re.search(r'^[a-z\-]+$', tool_name), "tool name should be in lowercase and separated by hyphen"
+        assert re.search(r'^[a-z\-]+$', tool_name), "Tool name should be in lowercase and separated by hyphen"
         assert not re.search(
             "|".join([re.escape(i) for i in
                       [ToolSymbol.TOOL_NAME.value, ToolSymbol.TOOL_PARAMETER.value, ToolSymbol.TOOL_OUTPUT.value,
                        ToolSymbol.TOOL_END.value]]),
-            tool_name), "tool name should not contain any of the tool symbols"
-        assert LlamaGrammar.from_string(grammar), "grammar is not valid"
+            tool_name), "Tool name should not contain any of the tool symbols"
+        assert LlamaGrammar.from_string(grammar, False), f"Grammar of {name} is not valid"
         tool_name_grammar = tool_name + '-prefix ::= "' + ToolSymbol.TOOL_NAME.value.encode('unicode-escape').decode(
-            'utf-8') + " " + tool_name + ToolSymbol.TOOL_PARAMETER.value.encode('unicode-escape').decode('utf-8') + ' "'
+            'utf-8') + tool_name + ToolSymbol.TOOL_PARAMETER.value.encode('unicode-escape').decode('utf-8') + '"'
         attrs['grammar'] = grammar.replace('root', tool_name, 1).replace("::=", f"::= {tool_name}-prefix",
-                                                                         1) + '\n' + tool_name_grammar  # replace root with tool name prefix
-        print(attrs['grammar'])
+                                                                         1) + '\n' + tool_name_grammar  # add tool name prefix to root to prevent name collision
         # TODO: add tool name prefix to other private non-terminal symbols while avoiding replacing terminals
 
         new_class = super().__new__(cls, name, bases, attrs)
@@ -69,7 +68,7 @@ class ToolCall(BaseModel):
     @classmethod
     def from_string(cls, input: str) -> list["ToolCall"]:
         tool_calls = []
-        pattern = "(" + ToolSymbol.TOOL_NAME.value + r' (.*?)' + ToolSymbol.TOOL_PARAMETER.value + r' (.*?))(?=' + ToolSymbol.TOOL_NAME.value + r'|' + ToolSymbol.TOOL_END.value + ')'
+        pattern = "(" + ToolSymbol.TOOL_NAME.value + r'(.*?)' + ToolSymbol.TOOL_PARAMETER.value + r'(.*?))(?=' + ToolSymbol.TOOL_NAME.value + r'|' + ToolSymbol.TOOL_END.value + ')'
         matches = re.findall(pattern, input, re.DOTALL)
         for match in matches:
             tool_calls.append(cls(source=match[0], tool_name=match[1], tool_parameter=match[2]))
@@ -88,11 +87,11 @@ class ToolCall(BaseModel):
 
 class DrawImageTool(Tool):
     tool_name = "draw-image"
-    tool_description = '''useful when you need to draw an image, pass in a prompt key-value pair like {"prompt": "image description"}, response is a markdown representation of image'''
+    tool_description = '''Useful when you need to draw an image. Parameter: "prompt" as string. Output: path to generated image.'''
     grammar = JSON_GRAMMAR  # r'''root ::= "{\"prompt\": " "\"" [^\U0001F528\U0001F3C1\U0001F4E4]* "\""  "}"'''
 
     def run(self, prompt: str) -> Output:
-        return "I have opened a popup window to display the image"
+        return f"Image saved at /data/{prompt}.png "
 
     def invoke(self, input: str, config: Optional = None) -> Output:
         param = json.loads(input)

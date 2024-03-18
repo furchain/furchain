@@ -62,7 +62,9 @@ An execution history would look like:
 Execution history is your inner thought, so you may need to refer to it to make response, and repeat it out in your response.
 
 Valid tools are defined as below:
-{tools}"""),
+{tools}
+
+Now play the role of {npc_name} and chat with {player_name}. Do not mention tools or use emoji in chat. Use tools when needed."""),
                                                                              MessagesPlaceholder(
                                                                                  variable_name='chat_history'),
                                                                              HumanMessagePromptTemplate.from_template(

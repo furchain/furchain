@@ -880,15 +880,14 @@ class Chat(Runnable):
 
                 elif ToolSymbol.TOOL_END.value in token:  # meet a tool call end, then look back to extract
                     buffer += token
-                    print("---shift---")
                     tool_calls = ToolCall.from_string(iterator.content)
                     for tool_call in tool_calls:
                         result = tool_call.execute()
                         iterator.content = iterator.content.replace(tool_call.source,
-                                                                    tool_call.source.strip() + ToolSymbol.TOOL_OUTPUT.value + result)
-                        print(buffer)
+                                                                    tool_call.source + ToolSymbol.TOOL_OUTPUT.value + result)
+                        # print(buffer)
                         buffer = buffer.replace(tool_call.source,
-                                                tool_call.source.strip() + ToolSymbol.TOOL_OUTPUT.value + result)
+                                                tool_call.source + ToolSymbol.TOOL_OUTPUT.value + result)
                     prompt = prompt_template.invoke(params)
                     prompt += iterator.content
                     new_stream = self.llm.stream(prompt)

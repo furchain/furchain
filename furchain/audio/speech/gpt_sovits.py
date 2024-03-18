@@ -1,7 +1,4 @@
-from typing import Optional
-
 import requests
-from langchain_core.runnables import RunnableConfig
 
 from furchain.audio.schema import TTS
 from furchain.config import AudioConfig
@@ -68,13 +65,14 @@ class GPTSovits(TTS):
     """
 
     def __init__(self, api_base: str = None, refer_wav_path: str = None, prompt_text: str = None,
-                 prompt_language: str = None):
+                 prompt_language: str = None, text_language=None):
         super().__init__()
         if api_base is None:
             api_base = AudioConfig.get_gpt_sovits_api_base()
+        self.text_language = text_language
         self.client = GPTSovitsClient(api_base, refer_wav_path, prompt_text, prompt_language)
 
-    def run(self, text: str, text_language: str) -> bytes:
+    def run(self, text: str, text_language: str = None) -> bytes:
         """
         This method converts the given text to speech by calling the infer method of the client.
 
@@ -85,22 +83,11 @@ class GPTSovits(TTS):
         Returns:
             bytes: The speech in bytes.
         """
+        if text_language is None:
+            text_language = self.text_language
         return self.client.infer(text, text_language)
 
-    def invoke(
-            self, input: dict, config: Optional[RunnableConfig] = None
-    ) -> bytes:
-        """
-        This method is a wrapper for the run method. It takes a dictionary as input and unpacks it to call the run method.
 
-        Args:
-            input (dict): The input parameters for the run method.
-            config (Optional[RunnableConfig]): The configuration for the runnable. Default is None.
-
-        Returns:
-            bytes: The speech in bytes.
-        """
-        return self.run(**input)
 
 
 __all__ = [
