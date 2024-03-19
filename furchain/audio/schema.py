@@ -14,6 +14,9 @@ class TTS(Runnable, metaclass=abc.ABCMeta):
     of the abstract methods in any concrete subclass.
     """
 
+    def run(self, text: str, *args, **kwargs):
+        raise NotImplementedError
+
     def invoke(self, input: dict | str, config: Optional[RunnableConfig] = None) -> Output:
         if isinstance(input, str):
             input = {"text": input}

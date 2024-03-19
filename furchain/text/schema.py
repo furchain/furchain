@@ -717,7 +717,7 @@ class Chat(Runnable):
                  **kwargs):
         super().__init__()
         if grammar is None:
-            grammar = r'''root ::= "''' + session.npc.character_name + r''':" [\x00-\x10FFFF]*'''  # Start with the npc's name, followed by any characters
+            grammar = r'''root ::= "''' + session.npc.character_name + f''':" [^"{session.player.character_name}:"]*'''  # Start with the npc's name, followed by any characters
         if isinstance(llm, RunnableBinding):
             model_kwargs = llm.kwargs
             llm = llm.bound
@@ -744,6 +744,8 @@ class Chat(Runnable):
                 self.chat_prompt_template = ROLEPLAY_WITH_TOOLS_CHAT_PROMPT_TEMPLATE
             else:
                 self.chat_prompt_template = ROLEPLAY_CHAT_PROMPT_TEMPLATE
+        else:
+            self.chat_prompt_template = chat_prompt_template
 
     def _get_chain_params(self, query: str,
                           **kwargs):
