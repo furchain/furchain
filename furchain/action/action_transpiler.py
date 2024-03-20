@@ -23,6 +23,7 @@ class ActionType(enum.Enum):
     SPEAK = '🗣️'
     DISPLAY = '🖼'
     SING = '🎤'
+    TOOL = '🔨'
     END = '🔚'
 
     @classmethod
@@ -38,6 +39,7 @@ class ActionParameter(enum.Enum):
     TEXT = '📄'
     IMAGE = '🖼'
     AUDIO = '🎤'
+    TOOL_PARAMETER = '📥'
 
     @classmethod
     def from_emoji(cls, emoji: str):
@@ -91,11 +93,12 @@ class ActionParser:
         raise NotImplementedError
 
     def reset(self) -> None:
-        raise NotImplementedError
+        ...
 
 
 class SpeakActionParser(ActionParser):
     syntax = ActionType.SPEAK.value + ActionParameter.SPEAKER.value + "{speaker}" + ActionParameter.TEXT.value + "{text}"
+    sentence_splits = ('.', '!', '?', '。', '！', '？')
 
     def __init__(self):
         self._speaker = None
@@ -108,7 +111,7 @@ class SpeakActionParser(ActionParser):
             return True
 
     def parse(self, current_token: str, unprocessed_tokens: str) -> Action:
-        if current_token == '':
+        if current_token == '' or set(current_token).intersection(self.sentence_splits):
             return Action(ActionType.SPEAK,
                           {ActionParameter.SPEAKER: self._speaker, ActionParameter.TEXT: unprocessed_tokens})
         return ''
@@ -157,52 +160,45 @@ class ActionTranspiler(Runnable):
             config: Optional[RunnableConfig] = None,
             **kwargs: Optional[Any],
     ) -> Iterator[Output]:
-        try:
-            unprocessed_tokens = ''
-            current_active_parser = None
-            for current_token in input:
-                for parser in self.parsers:
-                    is_matched = parser.match(current_token, unprocessed_tokens)
-                    if is_matched:
-                        if parser != current_active_parser and current_active_parser is not None:
-                            action_code = current_active_parser.parse('', unprocessed_tokens)
-                            if action_code:
-                                unprocessed_tokens = ''
-                            yield action_code
-                        current_active_parser = parser
-                        action_code = parser.parse(current_token, unprocessed_tokens)
+        for i in self.parsers:
+            i.reset()
+        unprocessed_tokens = ''
+        current_active_parser = None
+        for current_token in input:
+            for parser in self.parsers:
+                is_matched = parser.match(current_token, unprocessed_tokens)
+                if is_matched:
+                    if parser != current_active_parser and current_active_parser is not None:
+                        action_code = current_active_parser.parse('', unprocessed_tokens)
                         if action_code:
                             unprocessed_tokens = ''
                         yield action_code
-                        continue
-                unprocessed_tokens += current_token
-        finally:
-            for parser in self.parsers:
-                parser.reset()
+                    current_active_parser = parser
+                    action_code = parser.parse(current_token, unprocessed_tokens)
+                    if action_code:
+                        unprocessed_tokens = ''
+                    yield action_code
+                    continue
+            unprocessed_tokens += current_token
 
 
 class ActionExecutor:
     action_type: ActionType
     num_workers: int = 1
+    executor: Runnable
+    evaluator: Callable
 
-    def __init__(self, executor: Runnable, evaluator: Callable = lambda x: print(x)):
+    def __init__(self, validator: Callable, executor: Runnable, evaluator: Callable, num_workers: int = 1):
+        self.validator = validator
+        self.execution_pool = ThreadPoolExecutor(max_workers=num_workers)
         self.executor = executor
         self.evaluator = evaluator
 
+    def validate(self, action: Action) -> bool:
+        return self.validator(action)
+
     def submit(self, action: Action) -> Future:
-        raise NotImplementedError
+        return self.execution_pool.submit(self.executor.invoke, action.action_parameter)
 
     def evaluate(self, future: Future) -> Any:
-        raise NotImplementedError
-
-
-# RunnableMatch # if else runnable
-class TTSExecutor(ActionExecutor):
-    action_type = ActionType.SPEAK
-
-    def submit(self, action: Action) -> Future:
-        ...
-
-
-class ActionInterpreter(Runnable):
-    ...
+        return self.evaluator(future.result())
