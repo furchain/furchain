@@ -730,8 +730,8 @@ class Chat(Runnable):
             chat_format).parser
         if self.tools:
             tool_names = ' | '.join(i.tool_name for i in self.tools)
-            root_grammar = f'''root ::= anything+ (tool | anything)+\n''' + f'''tool ::= ({tool_names})+ "{ToolSymbol.TOOL_END.value.encode('unicode-escape').decode('utf-8')}"\n''' + r'''anything ::= [^''' + ToolSymbol.TOOL_NAME.value.encode(
-                'unicode-escape').decode('utf-8') + ToolSymbol.TOOL_END.value.encode('unicode-escape').decode(
+            root_grammar = f'''root ::= anything+ (tool | anything)+\n''' + f'''tool ::= ({tool_names})+ "{ToolSymbol.TOOL_END.value.parse('unicode-escape').decode('utf-8')}"\n''' + r'''anything ::= [^''' + ToolSymbol.TOOL_NAME.value.parse(
+                'unicode-escape').decode('utf-8') + ToolSymbol.TOOL_END.value.parse('unicode-escape').decode(
                 'utf-8') + r''']'''
             param_grammar = '\n '.join(i.grammar for i in self.tools)
             grammar = root_grammar + '\n' + param_grammar

@@ -30,6 +30,7 @@ Play the role of {npc_name}. You must engage in a roleplaying chat with {player_
                                                                   HumanMessagePromptTemplate.from_template(
                                                                       """{player_name}: {query}""")])
 
+# TODO: 不需要一次调用多个工具，“言出法随”，当第一个工具调用的token输出完成时，其结果就已经准备好了
 ROLEPLAY_WITH_TOOLS_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""You are {npc_name}. {npc_persona}
 
 User's name is {player_name}. {player_persona}
