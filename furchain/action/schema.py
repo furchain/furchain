@@ -8,13 +8,17 @@ Two timeline:
 1. token sequence
 2. action sequence"""
 import enum
+import re
 # LLM Token --interpreter--> ActionToken
 from concurrent.futures import ThreadPoolExecutor, Future
-from typing import Optional, Any, Iterator, Callable
+from typing import Iterator, Callable, Union
 
 import emoji
-from langchain_core.runnables import Runnable, RunnableConfig
-from langchain_core.runnables.utils import Output, Input
+from langchain_core.messages import BaseMessage
+from langchain_core.output_parsers import BaseTransformOutputParser
+from langchain_core.output_parsers.base import T
+
+from furchain.text.tools import ToolSymbol
 
 EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
@@ -23,7 +27,7 @@ class ActionType(enum.Enum):
     SPEAK = '🗣️'
     DISPLAY = '🖼'
     SING = '🎤'
-    TOOL = '🔨'
+    TOOL = '🧰'
     END = '🔚'
 
     @classmethod
@@ -39,7 +43,9 @@ class ActionParameter(enum.Enum):
     TEXT = '📄'
     IMAGE = '🖼'
     AUDIO = '🎤'
+    TOOL_NAME = '🔨'
     TOOL_PARAMETER = '📥'
+    TOOL_OUTPUT = '📤'
 
     @classmethod
     def from_emoji(cls, emoji: str):
@@ -60,6 +66,7 @@ class Action:
             if isinstance(k, str):
                 k = ActionParameter.from_emoji(k)
             self.action_parameter[k] = v
+        self.callback = None
 
     def __repr__(self):
         """Action Code"""
@@ -98,10 +105,10 @@ class ActionParser:
 
 class SpeakActionParser(ActionParser):
     syntax = ActionType.SPEAK.value + ActionParameter.SPEAKER.value + "{speaker}" + ActionParameter.TEXT.value + "{text}"
-    sentence_splits = ('.', '!', '?', '。', '！', '？')
 
-    def __init__(self):
+    def __init__(self, sentence_splits=('.', '!', '?', '。', '！', '？', '~')):
         self._speaker = None
+        self.sentence_splits = sentence_splits
 
     def match(self, current_token: str, unprocessed_tokens: str) -> bool:
         if self._speaker:
@@ -112,59 +119,63 @@ class SpeakActionParser(ActionParser):
 
     def parse(self, current_token: str, unprocessed_tokens: str) -> Action:
         if current_token == '' or set(current_token).intersection(self.sentence_splits):
+            if not unprocessed_tokens:
+                return ''
             return Action(ActionType.SPEAK,
-                          {ActionParameter.SPEAKER: self._speaker, ActionParameter.TEXT: unprocessed_tokens})
+                          {ActionParameter.SPEAKER: self._speaker,
+                           ActionParameter.TEXT: unprocessed_tokens.removeprefix(self._speaker + ':') + current_token})
         return ''
 
     def reset(self) -> None:
         self._speaker = None
 
 
-#
-# class ToolParser(Parser):
-#
-#     def submit(self, token: str) -> None | Output:
-#         if ToolSymbol.TOOL_NAME.value in token:
-#             self.activate()
-#         if self.is_active:
-#             self.buffer += token
-#             if ToolSymbol.TOOL_END.value in token:
-#                 self.deactivate()
-#         tool_calls = ToolCall.from_string(self.buffer)
-#         for tool_call in tool_calls:
-#             tool_call.tool.invoke(tool_call.tool_parameter)
-#             return self.tokenizer.invoke(self.buffer)
-#         self.buffer += token
-#         return None
+class ToolActionParser(ActionParser):
+    syntax = ActionType.TOOL.value + "{tool_name}" + ActionParameter.TOOL_PARAMETER.value + "{tool_parameter}" + ActionParameter.TOOL_OUTPUT.value
+
+    def __init__(self):
+        self._active = False
+
+    def match(self, current_token: str, unprocessed_tokens: str) -> bool:
+        if current_token == ToolSymbol.TOOL_NAME.value:
+            self._active = True
+            return True
+        elif current_token == ToolSymbol.TOOL_END.value:
+            self._active = False
+            return True
+        else:
+            return self._active
+
+    def parse(self, current_token: str, unprocessed_tokens: str) -> Action:
+        if current_token == ActionType.END.value:
+            pattern = f'''.*?{ActionParameter.TOOL_NAME.value}(.+?){ActionParameter.TOOL_PARAMETER.value}(.+?){ActionParameter.TOOL_OUTPUT.value}(.+?){ActionType.END.value}'''
+            match = re.findall(pattern, unprocessed_tokens + current_token, re.DOTALL)[0]
+            return Action(ActionType.TOOL, {
+                ActionParameter.TOOL_NAME: match[0],
+                ActionParameter.TOOL_PARAMETER: match[1],
+                ActionParameter.TOOL_OUTPUT: match[2]})
+        return ''
+
+    def reset(self) -> None:
+        self._tool_parameter = None
 
 
-class ActionTranspiler(Runnable):
-    """
-    None: no action
-    Callable: take instant action
-    Future: submit to executor
-    """
+class ActionOutputParser(BaseTransformOutputParser):
+    parsers: list[ActionParser]
 
-    def __init__(self, parsers: list[ActionParser]):
-        self.parsers = parsers
+    class Config:
+        arbitrary_types_allowed = True
 
-    def invoke(self, input: Input, config: Optional[RunnableConfig] = None) -> Output:
-        result = ''
-        for action_token in self.stream(input):
-            result += action_token
-        return result
+    def parse(self, text: str) -> T:
+        return text
 
-    def stream(
-            self,
-            input: Input,
-            config: Optional[RunnableConfig] = None,
-            **kwargs: Optional[Any],
-    ) -> Iterator[Output]:
+    def _transform(self, input: Iterator[Union[str, BaseMessage]]) -> Iterator[Action]:
         for i in self.parsers:
             i.reset()
         unprocessed_tokens = ''
         current_active_parser = None
         for current_token in input:
+            # print(f"{current_token=}, {unprocessed_tokens=}")
             for parser in self.parsers:
                 is_matched = parser.match(current_token, unprocessed_tokens)
                 if is_matched:
@@ -172,33 +183,59 @@ class ActionTranspiler(Runnable):
                         action_code = current_active_parser.parse('', unprocessed_tokens)
                         if action_code:
                             unprocessed_tokens = ''
-                        yield action_code
+                            yield action_code
                     current_active_parser = parser
                     action_code = parser.parse(current_token, unprocessed_tokens)
                     if action_code:
                         unprocessed_tokens = ''
-                    yield action_code
-                    continue
-            unprocessed_tokens += current_token
+                        yield action_code
+                    else:
+                        unprocessed_tokens += current_token
+                    break
+            else:
+                unprocessed_tokens += current_token
 
 
-class ActionExecutor:
-    action_type: ActionType
-    num_workers: int = 1
-    executor: Runnable
-    evaluator: Callable
+class Interaction:
+    def __init__(self, action: Action, future: Future, executor: Callable):
+        self.action = action
+        self.future = future
+        self.executor = executor
 
-    def __init__(self, validator: Callable, executor: Runnable, evaluator: Callable, num_workers: int = 1):
+    def execute(self):
+        return self.executor(self.future.result())
+
+
+class InteractionParser:
+
+    def __init__(self, validator: Callable, executor: Callable, evaluator: Callable, num_workers: int = 1):
         self.validator = validator
         self.execution_pool = ThreadPoolExecutor(max_workers=num_workers)
         self.executor = executor
         self.evaluator = evaluator
 
-    def validate(self, action: Action) -> bool:
+    def match(self, action: Action) -> bool:
         return self.validator(action)
 
-    def submit(self, action: Action) -> Future:
-        return self.execution_pool.submit(self.executor.invoke, action.action_parameter)
+    def parse(self, action: Action) -> Interaction:
+        print(f"Submit: {action}")
+        return Interaction(action, self.execution_pool.submit(self.executor, action.action_parameter), self.evaluator)
 
-    def evaluate(self, future: Future) -> Any:
-        return self.evaluator(future.result())
+
+class InteractionOutputParser(BaseTransformOutputParser):
+    parsers: list[InteractionParser]
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    def parse(self, action: Action) -> Action:
+        return action
+
+    def _transform(self, input: Iterator[Action]) -> Iterator[Interaction]:
+        for action in input:
+            for parser in self.parsers:
+                if parser.match(action):
+                    yield parser.parse(action)
+                    break
+            else:
+                print(f"No parser found for action: {action}")

@@ -104,7 +104,7 @@ class MongoDBChatMessageHistory(BaseChatMessageHistory):
         Returns:
             dict: A dictionary representation of the chat message history.
         """
-        return self.collection.find_one({"session_id": self.session_id})
+        return self.collection.find_one({"session_id": self.session_id}) or dict()
 
     def find(self, session_id, collection_name=None):
         """

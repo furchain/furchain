@@ -15,7 +15,7 @@ from langchain_core.runnables import Runnable, RunnableBinding
 from langchain_core.runnables import RunnableConfig
 from langchain_core.runnables import RunnableLambda
 from langchain_core.runnables.utils import Output
-from llama_cpp.llama_grammar import json_schema_to_gbnf
+from llama_cpp.llama_grammar import json_schema_to_gbnf, LlamaGrammar
 from pydantic import BaseModel, Field
 from pymongo import MongoClient
 
@@ -25,6 +25,7 @@ from furchain.text.chat_format import ChatFormat
 from furchain.text.chat_message_history import MongoDBChatMessageHistory, logger
 from furchain.text.chat_prompt_templates import ROLEPLAY_CHAT_PROMPT_TEMPLATE, NO_HISTORY_CHAT_PROMPT_TEMPLATE, \
     ROLEPLAY_WITH_TOOLS_CHAT_PROMPT_TEMPLATE
+from furchain.text.grammars import JSON_GRAMMAR
 from furchain.text.llama_cpp_client import LlamaCppClient
 from furchain.text.tools import ToolSymbol, Tool, ToolCall
 
@@ -594,7 +595,7 @@ class Session(BaseModel_v1):
             dict: A dictionary representation of the session.
         """
         result = self.chat_history_proxy.dict()
-        result.pop("_id")
+        result.pop("_id", None)
         return result
 
     @classmethod
@@ -716,8 +717,10 @@ class Chat(Runnable):
                  tools: list[Tool] = None,
                  **kwargs):
         super().__init__()
+
         if grammar is None:
-            grammar = r'''root ::= "''' + session.npc.character_name + f''':" [^"{session.player.character_name}:"]*'''  # Start with the npc's name, followed by any characters
+            grammar = r'''root ::= "''' + session.npc.character_name.encode("unicode-escape").decode(
+                "utf-8") + r''':" [\u4E00-\u9FFFA-Za-z0-9\u0021-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u007E]*'''  # Start with the npc's name, followed by any characters
         if isinstance(llm, RunnableBinding):
             model_kwargs = llm.kwargs
             llm = llm.bound
@@ -729,15 +732,22 @@ class Chat(Runnable):
         chat_format_parser = chat_format.parser if isinstance(chat_format, ChatFormat) else ChatFormat(
             chat_format).parser
         if self.tools:
-            tool_names = ' | '.join(i.tool_name for i in self.tools)
-            root_grammar = f'''root ::= anything+ (tool | anything)+\n''' + f'''tool ::= ({tool_names})+ "{ToolSymbol.TOOL_END.value.parse('unicode-escape').decode('utf-8')}"\n''' + r'''anything ::= [^''' + ToolSymbol.TOOL_NAME.value.parse(
-                'unicode-escape').decode('utf-8') + ToolSymbol.TOOL_END.value.parse('unicode-escape').decode(
-                'utf-8') + r''']'''
-            param_grammar = '\n '.join(i.grammar for i in self.tools)
-            grammar = root_grammar + '\n' + param_grammar
+            root_grammar = f'''root ::= "{session.npc.character_name.encode("unicode-escape").decode("utf-8")}:" ''' + f'''anything+ (tool | anything)+\n''' + f'''tool ::= {" | ".join(i.tool_name + "-root" for i in self.tools)}\n''' + r'''anything ::= [\u4E00-\u9FFFA-Za-z0-9\u0021-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u007E]'''
+            tool_grammar = '\n'.join([
+                f'''{i.tool_name}-root ::= "{ToolSymbol.TOOL_NAME.value.encode("unicode-escape").decode("utf-8")}" "{i.tool_name}" "{ToolSymbol.TOOL_PARAMETER.value.encode("unicode-escape").decode("utf-8")}" parameter-{i.tool_name}-root "{ToolSymbol.TOOL_OUTPUT.value.encode("unicode-escape").decode("utf-8")}"'''
+                for i in self.tools])
+            json_grammar = "json-" + JSON_GRAMMAR
+            parameter_grammar = '\n'.join([f'parameter-{i.tool_name}-' + i.tool_parameter_grammar for i in self.tools])
+            grammar = '\n'.join([
+                root_grammar,
+                tool_grammar,
+                json_grammar,
+                parameter_grammar
+            ])
         self.llm = llm.bind(stop=model_kwargs.get("stop", []) + chat_format_parser.stop, grammar=grammar)
         self.chat_format_parser = chat_format_parser
         self.session = session
+        assert LlamaGrammar.from_string(grammar)
 
         if chat_prompt_template is None:
             if self.tools:
@@ -775,11 +785,11 @@ class Chat(Runnable):
             history_messages = []
         for i in history_messages:
             if isinstance(i, HumanMessage):
-                i.content = i.content.removeprefix(f"{self.session.player.character_name}: ")
-                i.content = f"{self.session.player.character_name}: {i.content}"
+                i.content = i.content.removeprefix(f"{self.session.player.character_name}:")
+                i.content = f"{self.session.player.character_name}:{i.content}"
             elif isinstance(i, AIMessage):
-                i.content = i.content.removeprefix(f"{self.session.npc.character_name}: ")
-                i.content = f"{self.session.npc.character_name}: {i.content}"
+                i.content = i.content.removeprefix(f"{self.session.npc.character_name}:")
+                i.content = f"{self.session.npc.character_name}:{i.content}"
         chat_history = messages_to_dict(history_messages)
         kwargs['npc_name'] = self.session.npc.character_name
         kwargs['npc_persona'] = self.session.npc.persona.format(
@@ -880,16 +890,12 @@ class Chat(Runnable):
                     buffer += token
                     hidden = True
 
-                elif ToolSymbol.TOOL_END.value in token:  # meet a tool call end, then look back to extract
+                elif ToolSymbol.TOOL_OUTPUT.value in token:  # meet a tool call end, then look back to extract
                     buffer += token
-                    tool_calls = ToolCall.from_string(iterator.content)
-                    for tool_call in tool_calls:
-                        result = tool_call.execute()
-                        iterator.content = iterator.content.replace(tool_call.source,
-                                                                    tool_call.source + ToolSymbol.TOOL_OUTPUT.value + result)
-                        # print(buffer)
-                        buffer = buffer.replace(tool_call.source,
-                                                tool_call.source + ToolSymbol.TOOL_OUTPUT.value + result)
+                    tool_call = ToolCall.from_string(iterator.content)
+                    result = tool_call.execute()
+                    iterator.content = iterator.content + result + ToolSymbol.TOOL_END.value
+                    buffer = buffer + result + ToolSymbol.TOOL_END.value
                     prompt = prompt_template.invoke(params)
                     prompt += iterator.content
                     new_stream = self.llm.stream(prompt)
@@ -900,7 +906,7 @@ class Chat(Runnable):
                     )
                     new_iterator.content = iterator.content
                     yield from new_iterator
-                    break  # should not reach here
+                    return
                 elif not hidden:
                     yield token
                 else:

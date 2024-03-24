@@ -19,13 +19,24 @@ Scenario: {scenario_description}"""),
                                                                 HumanMessagePromptTemplate.from_template(
                                                                     """{player_name}: {query}""")])
 
-ROLEPLAY_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""{npc_name}'s Persona: {npc_persona}
+# ROLEPLAY_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""{npc_name}'s Persona: {npc_persona}
+#
+# {player_name}'s Persona: {player_persona}
+#
+# Scenario: {scenario_description}
+#
+# Play the role of {npc_name}. You must engage in a roleplaying chat with {player_name} below this line. Do not write dialogues and narration for {player_name}. Response should be as detailed as possible."""),
+#                                                                   MessagesPlaceholder(variable_name='chat_history'),
+#                                                                   HumanMessagePromptTemplate.from_template(
+#                                                                       """{player_name}: {query}""")])
 
-{player_name}'s Persona: {player_persona}
+ROLEPLAY_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""You are {npc_name}. {npc_persona}
 
-Scenario: {scenario_description}
+I am {player_name}. {player_persona}
 
-Play the role of {npc_name}. You must engage in a roleplaying chat with {player_name} below this line. Do not write dialogues and narration for {player_name}. Response should be as detailed as possible."""),
+Current Scenario: {scenario_description}
+
+You are {npc_name}. You are speaking to {player_name}. Clearly speak plain text only. Do not speak in the role of {player_name}. Response should be as detailed as possible in {npc_name}'s language."""),
                                                                   MessagesPlaceholder(variable_name='chat_history'),
                                                                   HumanMessagePromptTemplate.from_template(
                                                                       """{player_name}: {query}""")])
@@ -33,39 +44,27 @@ Play the role of {npc_name}. You must engage in a roleplaying chat with {player_
 # TODO: 不需要一次调用多个工具，“言出法随”，当第一个工具调用的token输出完成时，其结果就已经准备好了
 ROLEPLAY_WITH_TOOLS_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""You are {npc_name}. {npc_persona}
 
-User's name is {player_name}. {player_persona}
+I am {player_name}. {player_persona}
 
 Current Scenario: {scenario_description}
 
-You have access to a set of tools that can be used by following a specific rule. The rule for using these tools is structured as follows:
+You have many skills. The rule for using these skills is structured as follows:
 
-1. Begin with the tool icon 🔨 followed by the tool's name and then the tool parameter icon 📥 and the specific parameter for that tool.
-2. This sequence can be repeated multiple times for different tools with their respective parameters.
-3. End the sequence with the stop icon 🛑.
+🔨: follows skill name
+📥: follows skill parameter
+📤: follows skill execution result
+🔚： ends the skill
 
-Previous execution history is in the following format:
-1. Begin with the tool icon 🔨 followed by the tool's name and then the tool parameter icon 📥 and the specific parameter for that tool. After that follows 📤 and the output of the tool.
-2. This sequence can be repeated multiple times for different tools with their respective parameters.
-3. End the sequence with the stop icon 🛑.
+Example: 🔨skill-name📥skill parameter📤skill execution result🔚.
 
-For instance, a valid sequence using these tools would involve:
-- Starting with 🔨 tool-1📥 parameter1
-- Following up with 🔨tool-1📥 parameter2
-- Continuing with 🔨 tool-2📥 parameter3
-- Finally, concluding the sequence with 🛑
+When using the skill, you need to put in appropriate parameters. Do not explain the skill, just use it.
 
-An execution history would look like:
-- Starting with 🔨 tool-1📥 parameter1📤output1
-- Following up with 🔨tool-1📥 parameter2📤output2
-- Continuing with 🔨 tool-2📥 parameter3📤output3
-- Finally, concluding the sequence with 🛑
-
-Execution history is your inner thought, so you may need to refer to it to make response, and repeat it out in your response.
-
-Valid tools are defined as below:
+Valid skills are defined as below:
 {tools}
 
-Now play the role of {npc_name} and chat with {player_name}. Do not mention tools or use emoji in chat. Use tools when needed."""),
+You skill is performed once you tell it.
+
+You are {npc_name}. You are speaking to {player_name}. Clearly speak plain text only. Do not speak in the role of {player_name}. Response should be as detailed as possible in {npc_name}'s language."""),
                                                                              MessagesPlaceholder(
                                                                                  variable_name='chat_history'),
                                                                              HumanMessagePromptTemplate.from_template(
