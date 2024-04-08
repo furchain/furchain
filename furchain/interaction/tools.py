@@ -13,8 +13,6 @@ class ToolSymbol(enum.Enum):
     TOOL_NAME = "\U0001F528"  # "🔨"
     TOOL_PARAMETER = "\U0001F4E5"  # "📥"
     TOOL_OUTPUT = "\U0001F4E4"  # "📤"
-    # TOOL_END = "\U0001F3C1"  # "🏁"
-    # TOOL_END = "\U0001F6D1"  # 🛑
     TOOL_END = "\U0001F51A"  # "🔚"
 
 
@@ -67,7 +65,7 @@ class ToolCall(BaseModel):
     @classmethod
     def from_string(cls, input: str) -> "ToolCall":
         pattern = ToolSymbol.TOOL_NAME.value + r'(.*?)' + ToolSymbol.TOOL_PARAMETER.value + r'(.*?)' + ToolSymbol.TOOL_OUTPUT.value
-        match = re.findall(pattern, input, re.DOTALL)[0]
+        match = re.findall(pattern, input, re.DOTALL)[-1]
         return (cls(tool_name=match[0], tool_parameter=match[1]))
 
     def execute(self) -> str:
@@ -80,17 +78,3 @@ class ToolCall(BaseModel):
         return self.tool.invoke(self.tool_parameter)
 
 
-class DrawImageTool(Tool):
-    tool_name = "draw-image"
-    tool_description = '''Useful when you need to draw an image. Parameter: "prompt" as json key. Output: path to generated image.'''
-    tool_parameter_grammar = r'''root ::= "{\"prompt\":" string "}"'''
-
-    @classmethod
-    def run(cls, prompt: str) -> Output:
-        return f"[{prompt}](/image/{prompt}.png)"
-        # return f"Image saved at /data/{prompt}.png "
-
-    @classmethod
-    def invoke(cls, input: str, config: Optional = None) -> Output:
-        param = json.loads(input)
-        return cls.run(**param)

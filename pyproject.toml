@@ -13,7 +13,7 @@ pydub = "^0.25.1"
 soundfile = "^0.12.1"
 requests = "^2.31.0"
 sympy = "^1.12"
-audio-separator = { extras = ["gpu"], version = "^0.13.0" }
+#audio-separator = { extras = ["gpu"], version = "^0.13.0" }
 langchain-core = "^0.1.16"
 langchain-community = "^0.0.16"
 openai = "^1.10.0"

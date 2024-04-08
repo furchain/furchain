@@ -1,26 +1,12 @@
-"""Interprete LLM output into actions
-let all llm output pass in this
-for string, print
-for speaking, audio
-for image, display
-
-Two timeline:
-1. token sequence
-2. action sequence"""
 import enum
 import re
-# LLM Token --interpreter--> ActionToken
-from concurrent.futures import ThreadPoolExecutor, Future
-from typing import Iterator, Callable, Union
+from typing import Iterator, Union
 
 import emoji
 from langchain_core.messages import BaseMessage
 from langchain_core.output_parsers import BaseTransformOutputParser
-from langchain_core.output_parsers.base import T
 
-from furchain.text.tools import ToolSymbol
-
-EXECUTOR = ThreadPoolExecutor(max_workers=4)
+from furchain.interaction.tools import ToolSymbol
 
 
 class ActionType(enum.Enum):
@@ -129,7 +115,6 @@ class SpeakActionParser(ActionParser):
     def reset(self) -> None:
         self._speaker = None
 
-
 class ToolActionParser(ActionParser):
     syntax = ActionType.TOOL.value + "{tool_name}" + ActionParameter.TOOL_PARAMETER.value + "{tool_parameter}" + ActionParameter.TOOL_OUTPUT.value
 
@@ -149,15 +134,13 @@ class ToolActionParser(ActionParser):
     def parse(self, current_token: str, unprocessed_tokens: str) -> Action:
         if current_token == ActionType.END.value:
             pattern = f'''.*?{ActionParameter.TOOL_NAME.value}(.+?){ActionParameter.TOOL_PARAMETER.value}(.+?){ActionParameter.TOOL_OUTPUT.value}(.+?){ActionType.END.value}'''
+            print(pattern, unprocessed_tokens + current_token)
             match = re.findall(pattern, unprocessed_tokens + current_token, re.DOTALL)[0]
             return Action(ActionType.TOOL, {
                 ActionParameter.TOOL_NAME: match[0],
                 ActionParameter.TOOL_PARAMETER: match[1],
                 ActionParameter.TOOL_OUTPUT: match[2]})
         return ''
-
-    def reset(self) -> None:
-        self._tool_parameter = None
 
 
 class ActionOutputParser(BaseTransformOutputParser):
@@ -166,7 +149,7 @@ class ActionOutputParser(BaseTransformOutputParser):
     class Config:
         arbitrary_types_allowed = True
 
-    def parse(self, text: str) -> T:
+    def parse(self, text: str) -> str:
         return text
 
     def _transform(self, input: Iterator[Union[str, BaseMessage]]) -> Iterator[Action]:
@@ -194,48 +177,3 @@ class ActionOutputParser(BaseTransformOutputParser):
                     break
             else:
                 unprocessed_tokens += current_token
-
-
-class Interaction:
-    def __init__(self, action: Action, future: Future, executor: Callable):
-        self.action = action
-        self.future = future
-        self.executor = executor
-
-    def execute(self):
-        return self.executor(self.future.result())
-
-
-class InteractionParser:
-
-    def __init__(self, validator: Callable, executor: Callable, evaluator: Callable, num_workers: int = 1):
-        self.validator = validator
-        self.execution_pool = ThreadPoolExecutor(max_workers=num_workers)
-        self.executor = executor
-        self.evaluator = evaluator
-
-    def match(self, action: Action) -> bool:
-        return self.validator(action)
-
-    def parse(self, action: Action) -> Interaction:
-        print(f"Submit: {action}")
-        return Interaction(action, self.execution_pool.submit(self.executor, action.action_parameter), self.evaluator)
-
-
-class InteractionOutputParser(BaseTransformOutputParser):
-    parsers: list[InteractionParser]
-
-    class Config:
-        arbitrary_types_allowed = True
-
-    def parse(self, action: Action) -> Action:
-        return action
-
-    def _transform(self, input: Iterator[Action]) -> Iterator[Interaction]:
-        for action in input:
-            for parser in self.parsers:
-                if parser.match(action):
-                    yield parser.parse(action)
-                    break
-            else:
-                print(f"No parser found for action: {action}")

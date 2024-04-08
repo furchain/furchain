@@ -1,3 +1,4 @@
+import itertools
 import json
 from typing import Optional, Any, Iterable, Iterator
 
@@ -20,6 +21,7 @@ from pydantic import BaseModel, Field
 from pymongo import MongoClient
 
 from furchain.config import TextConfig
+from furchain.interaction.tools import ToolSymbol, Tool, ToolCall
 from furchain.text.callbacks import StrChunkCallbackIterator
 from furchain.text.chat_format import ChatFormat
 from furchain.text.chat_message_history import MongoDBChatMessageHistory, logger
@@ -27,7 +29,6 @@ from furchain.text.chat_prompt_templates import ROLEPLAY_CHAT_PROMPT_TEMPLATE, N
     ROLEPLAY_WITH_TOOLS_CHAT_PROMPT_TEMPLATE
 from furchain.text.grammars import JSON_GRAMMAR
 from furchain.text.llama_cpp_client import LlamaCppClient
-from furchain.text.tools import ToolSymbol, Tool, ToolCall
 
 CLASS_DICT = {
     'HumanMessagePromptTemplate': HumanMessagePromptTemplate,
@@ -453,7 +454,9 @@ class LlamaCpp(Runnable):
             input = self.chat_format.parser.parse(input)
         if isinstance(input, (str, list)):
             input = {"prompt": input}
-        return self.client.complete(input, **kwargs, **self.model_kwargs)['content']
+        response = self.client.complete(input, **kwargs, **self.model_kwargs)
+        logger.debug(response)
+        return response['content']
 
     def stream(
             self,
@@ -719,8 +722,10 @@ class Chat(Runnable):
         super().__init__()
 
         if grammar is None:
-            grammar = r'''root ::= "''' + session.npc.character_name.encode("unicode-escape").decode(
-                "utf-8") + r''':" [\u4E00-\u9FFFA-Za-z0-9\u0021-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u007E]*'''  # Start with the npc's name, followed by any characters
+            self.grammar = r'''root ::= "''' + session.npc.character_name.encode("unicode-escape").decode(
+                "utf-8") + r''':" [\u4E00-\u9FFFA-Za-z0-9\u0021-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u007E\uFF01-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65\u3002\n ]*'''  # Start with the npc's name, followed by any characters
+        else:
+            self.grammar = grammar
         if isinstance(llm, RunnableBinding):
             model_kwargs = llm.kwargs
             llm = llm.bound
@@ -732,22 +737,22 @@ class Chat(Runnable):
         chat_format_parser = chat_format.parser if isinstance(chat_format, ChatFormat) else ChatFormat(
             chat_format).parser
         if self.tools:
-            root_grammar = f'''root ::= "{session.npc.character_name.encode("unicode-escape").decode("utf-8")}:" ''' + f'''anything+ (tool | anything)+\n''' + f'''tool ::= {" | ".join(i.tool_name + "-root" for i in self.tools)}\n''' + r'''anything ::= [\u4E00-\u9FFFA-Za-z0-9\u0021-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u007E]'''
+            root_grammar = f'''root ::= "{session.npc.character_name.encode("unicode-escape").decode("utf-8")}:" ''' + f'''anything+ (tool | anything)+\n''' + f'''tool ::= {" | ".join(i.tool_name + "-root" for i in self.tools)}\n''' + r'''anything ::= [\u4E00-\u9FFFA-Za-z0-9\u0021-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u007E\uFF01-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65\u3002\n ]'''
             tool_grammar = '\n'.join([
                 f'''{i.tool_name}-root ::= "{ToolSymbol.TOOL_NAME.value.encode("unicode-escape").decode("utf-8")}" "{i.tool_name}" "{ToolSymbol.TOOL_PARAMETER.value.encode("unicode-escape").decode("utf-8")}" parameter-{i.tool_name}-root "{ToolSymbol.TOOL_OUTPUT.value.encode("unicode-escape").decode("utf-8")}"'''
                 for i in self.tools])
             json_grammar = "json-" + JSON_GRAMMAR
             parameter_grammar = '\n'.join([f'parameter-{i.tool_name}-' + i.tool_parameter_grammar for i in self.tools])
-            grammar = '\n'.join([
+            self.grammar = '\n'.join([
                 root_grammar,
                 tool_grammar,
                 json_grammar,
                 parameter_grammar
             ])
-        self.llm = llm.bind(stop=model_kwargs.get("stop", []) + chat_format_parser.stop, grammar=grammar)
+        self.llm = llm.bind(stop=model_kwargs.get("stop", []) + chat_format_parser.stop, grammar=self.grammar)
         self.chat_format_parser = chat_format_parser
         self.session = session
-        assert LlamaGrammar.from_string(grammar)
+        assert LlamaGrammar.from_string(self.grammar)
 
         if chat_prompt_template is None:
             if self.tools:
@@ -777,7 +782,6 @@ class Chat(Runnable):
                                                             **x)
                 ))
                 | RunnableLambda(self.chat_format_parser.parse)
-                | RunnableLambda(lambda x: (logger.debug("Prompt: " + x), x)[1])
         )
         if "chat_history" in self.chat_prompt_template.input_variables:
             history_messages = self.session.messages
@@ -879,38 +883,37 @@ class Chat(Runnable):
                 callbacks=[_update_chat_history],
             )
         else:
-            iterator = StrChunkCallbackIterator(
-                iterable=stream,
-                callbacks=[_update_chat_history],
-            )
-            hidden = False
-            buffer = ''
-            for token in iterator:
-                if ToolSymbol.TOOL_NAME.value in token:
-                    buffer += token
-                    hidden = True
-
-                elif ToolSymbol.TOOL_OUTPUT.value in token:  # meet a tool call end, then look back to extract
-                    buffer += token
-                    tool_call = ToolCall.from_string(iterator.content)
-                    result = tool_call.execute()
-                    iterator.content = iterator.content + result + ToolSymbol.TOOL_END.value
-                    buffer = buffer + result + ToolSymbol.TOOL_END.value
-                    prompt = prompt_template.invoke(params)
-                    prompt += iterator.content
-                    new_stream = self.llm.stream(prompt)
-                    from itertools import chain
-                    new_iterator = StrChunkCallbackIterator(
-                        iterable=chain(buffer, new_stream),
-                        callbacks=[_update_chat_history]
-                    )
-                    new_iterator.content = iterator.content
-                    yield from new_iterator
-                    return
-                elif not hidden:
+            #
+            def _stream(prompt_value, llm, buffer, content=''):
+                logger.debug(f"stream input: {prompt_value}")
+                new_stream = llm.stream(prompt_value)
+                iterator = StrChunkCallbackIterator(
+                    iterable=itertools.chain(buffer, new_stream),
+                    callbacks=[_update_chat_history]
+                )
+                iterator.content = content
+                for token in iterator:
+                    print(f"{token=}")
                     yield token
-                else:
-                    buffer += token
+                    if ToolSymbol.TOOL_OUTPUT.value in token:  # meet a tool call end, then look back to extract
+                        tool_call = ToolCall.from_string(iterator.content)
+                        result = tool_call.execute()
+                        prompt_value += iterator.content + result + ToolSymbol.TOOL_END.value
+                        new_iterator = _stream(prompt_value,
+                                               self.llm.bind(grammar=self.grammar.replace(
+                                                   f'''"{self.session.npc.character_name.encode('unicode-escape').decode('utf-8')}:"''',
+                                                   '', 1)),
+                                               result + ToolSymbol.TOOL_END.value,
+                                               iterator.content)
+                        print(self.grammar.replace(
+                                                   f"{self.session.npc.character_name.encode('unicode-escape').decode('utf-8')}:",
+                                                   '', 1))
+                        del iterator
+                        yield from new_iterator
+                        return
+
+            prompt_value = prompt_template.invoke(params)
+            yield from _stream(prompt_value, self.llm, '')
 
 
 class CreateScenarioByChat:
