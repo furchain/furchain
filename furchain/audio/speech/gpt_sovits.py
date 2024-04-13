@@ -18,7 +18,7 @@ class GPTSovitsClient:
         prompt_language (str): The language of the prompt text.
     """
 
-    def __init__(self, api_base: str, refer_wav_path: str = None, prompt_text: str = None, prompt_language: str = None):
+    def __init__(self, api_base: str, refer_wav_path: str = None, prompt_text: str = None, prompt_language: str = 'auto'):
         self.api_base = api_base
         self.refer_wav_path = refer_wav_path
         self.prompt_text = prompt_text
@@ -56,15 +56,16 @@ class GPTSovitsClient:
         response = requests.post(self.api_base, json=payload)
         return response.content
 
-    def vc(self, prompt_wav: bytes, noise_scale: float = 0.5):
+    def vc(self, refer_wav:bytes, prompt_wav: bytes, prompt_text:str, noise_scale: float = 0.5):
         params = {
             'noise_scale': noise_scale,
-            'prompt_text': self.prompt_text,
+            'prompt_text': prompt_text,
             'prompt_language': self.prompt_language,
-            'refer_wav_path': self.refer_wav_path
+
         }
         file = {
             'prompt_wav': prompt_wav,
+            'refer_wav': refer_wav
         }
         response = requests.post(urljoin(self.api_base, "vc"), params=params, files=file)
         return response.content

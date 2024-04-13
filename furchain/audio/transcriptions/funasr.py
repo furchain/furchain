@@ -255,7 +255,7 @@ class FunASR(STT):
         if i is None:
             raise RuntimeError("FunASR failed to return a valid result.")
         if result == '':
-            if audio_format := get_format_from_magic_bytes(input) != 'unknown':
+            if audio_format := get_format_from_magic_bytes(input):
                 warnings.warn(
                     f"You need to convert `{audio_format}` into PCM format with `furchain.audio.utils.convert.convert_to_pcm`.")
 
