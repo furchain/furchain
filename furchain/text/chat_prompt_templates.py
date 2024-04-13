@@ -19,16 +19,56 @@ Scenario: {scenario_description}"""),
                                                                 HumanMessagePromptTemplate.from_template(
                                                                     """{player_name}: {query}""")])
 
-ROLEPLAY_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""{npc_name}'s Persona: {npc_persona}
+# ROLEPLAY_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""{npc_name}'s Persona: {npc_persona}
+#
+# {player_name}'s Persona: {player_persona}
+#
+# Scenario: {scenario_description}
+#
+# Play the role of {npc_name}. You must engage in a roleplaying chat with {player_name} below this line. Do not write dialogues and narration for {player_name}. Response should be as detailed as possible."""),
+#                                                                   MessagesPlaceholder(variable_name='chat_history'),
+#                                                                   HumanMessagePromptTemplate.from_template(
+#                                                                       """{player_name}: {query}""")])
 
-{player_name}'s Persona: {player_persona}
+ROLEPLAY_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""You are {npc_name}. {npc_persona}
 
-Scenario: {scenario_description}
+I am {player_name}. {player_persona}
 
-Play the role of {npc_name}. You must engage in a roleplaying chat with {player_name} below this line. Do not write dialogues and narration for {player_name}. Response should be as detailed as possible."""),
+Current Scenario: {scenario_description}
+
+You are {npc_name}. You are speaking to {player_name}. Clearly speak plain text only. Do not speak in the role of {player_name}. Response should be as detailed as possible in {npc_name}'s language."""),
                                                                   MessagesPlaceholder(variable_name='chat_history'),
                                                                   HumanMessagePromptTemplate.from_template(
                                                                       """{player_name}: {query}""")])
+
+# TODO: 不需要一次调用多个工具，“言出法随”，当第一个工具调用的token输出完成时，其结果就已经准备好了
+ROLEPLAY_WITH_TOOLS_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template("""You are {npc_name}. {npc_persona}
+
+I am {player_name}. {player_persona}
+
+Current Scenario: {scenario_description}
+
+You have many skills. The rule for using these skills is structured as follows:
+
+🔨: follows skill name
+📥: follows skill parameter
+📤: follows skill execution result
+🔚： ends the skill
+
+Example: 🔨skill-name📥skill parameter📤skill execution result🔚.
+
+When using the skill, you need to put in appropriate parameters. Do not explain the skill, just use it.
+
+Valid skills are defined as below:
+{tools}
+
+You skill is performed once you tell it.
+
+You are {npc_name}. You are speaking to {player_name}. Clearly speak plain text only. Do not speak in the role of {player_name}. Response should be as detailed as possible in {npc_name}'s language."""),
+                                                                             MessagesPlaceholder(
+                                                                                 variable_name='chat_history'),
+                                                                             HumanMessagePromptTemplate.from_template(
+                                                                                 """{player_name}: {query}""")])
 
 CHINESE_TRANSLATION_CHAT_PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([SystemMessage(
     content="Translate the following sentences into spoken Chinese with conversational and natural tone. Keep special characters such as * intact."),

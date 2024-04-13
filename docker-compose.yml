@@ -17,7 +17,7 @@ services:
       - "8000:8080"
     volumes:
       - "./data/llama-cpp:/models"
-    command: -m models/FusionNet_7Bx2_MoE_14B-Q4_K.gguf -c 4096 --host 0.0.0.0 --port 8080 --n-gpu-layers 99
+    command: -m models/fusionnet_34bx2_moe.Q4_K_M.gguf -c 16384 --host 0.0.0.0 --port 8080 --n-gpu-layers 81 --parallel 4 --mlock --cont-batching --defrag-thold 0.1
     deploy:
       resources:
         reservations:
@@ -25,6 +25,10 @@ services:
             - driver: nvidia
               count: all
               capabilities: [ gpu ]
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
 
   audio-gpt-sovits:
     image: markyfsun/gpt-sovits:latest
@@ -33,6 +37,10 @@ services:
       - "9880:9880"
     volumes:
       - "./data/gpt-sovits:/ref"
+    environment:
+      - SOVITS_MODEL_PATH=GPT_SoVITS/pretrained_models/s2G488k.pth
+      - GPT_MODEL_PATH=GPT_SoVITS/pretrained_models/s1bert25hz-2kh-longer-epoch=68e-step=50232.ckpt
+
     deploy:
       resources:
         reservations:
@@ -54,6 +62,31 @@ services:
       - "8001:8001"
     volumes:
       - "./data/rvc:/app/assets/weights"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+
+  image-stable-diffusion-webui:
+    image: markyfsun/stable-diffusion-webui:latest
+    restart: unless-stopped
+    command: --no-half --no-half-vae --precision full --api --enable-insecure-extension-access --skip-install
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data/stable-diffusion-webui/ui-config.json:/app/stable-diffusion-webui/ui-config.json
+      - ./data/stable-diffusion-webui/inputs:/app/stable-diffusion-webui/inputs
+      - ./data/stable-diffusion-webui/textual_inversion_templates:/app/stable-diffusion-webui/textual_inversion_templates
+      - ./data/stable-diffusion-webui/embeddings:/app/stable-diffusion-webui/embeddings
+      - ./data/stable-diffusion-webui/extensions:/app/stable-diffusion-webui/extensions
+      - ./data/stable-diffusion-webui/models:/app/stable-diffusion-webui/models
+      - ./data/stable-diffusion-webui/localizations:/app/stable-diffusion-webui/localizations
+      - ./data/stable-diffusion-webui/output:/app/stable-diffusion-webui/output
+    stop_signal: SIGKILL
+    tty: true
     deploy:
       resources:
         reservations:

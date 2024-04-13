@@ -73,3 +73,9 @@ class AudioConfig:
     @staticmethod
     def get_funasr_api():
         return os.environ['FURCHAIN_AUDIO_FUNASR_API']
+
+class ImageConfig:
+
+    @classmethod
+    def get_stable_diffusion_webui_api_base(cls):
+        return os.environ['FURCHAIN_IMAGE_STABLE_DIFFUSION_WEBUI_API_BASE']

@@ -1,3 +1,4 @@
+import itertools
 import json
 from typing import Optional, Any, Iterable, Iterator
 
@@ -6,6 +7,7 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.messages import SystemMessage, messages_from_dict
 from langchain_core.messages import messages_to_dict
+from langchain_core.prompt_values import ChatPromptValue
 from langchain_core.prompts import AIMessagePromptTemplate, \
     MessagesPlaceholder
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate
@@ -14,15 +16,18 @@ from langchain_core.runnables import Runnable, RunnableBinding
 from langchain_core.runnables import RunnableConfig
 from langchain_core.runnables import RunnableLambda
 from langchain_core.runnables.utils import Output
-from llama_cpp.llama_grammar import json_schema_to_gbnf
+from llama_cpp.llama_grammar import json_schema_to_gbnf, LlamaGrammar
 from pydantic import BaseModel, Field
 from pymongo import MongoClient
 
 from furchain.config import TextConfig
+from furchain.interaction.tools import ToolSymbol, Tool, ToolCall
 from furchain.text.callbacks import StrChunkCallbackIterator
 from furchain.text.chat_format import ChatFormat
 from furchain.text.chat_message_history import MongoDBChatMessageHistory, logger
-from furchain.text.chat_prompt_templates import ROLEPLAY_CHAT_PROMPT_TEMPLATE, NO_HISTORY_CHAT_PROMPT_TEMPLATE
+from furchain.text.chat_prompt_templates import ROLEPLAY_CHAT_PROMPT_TEMPLATE, NO_HISTORY_CHAT_PROMPT_TEMPLATE, \
+    ROLEPLAY_WITH_TOOLS_CHAT_PROMPT_TEMPLATE
+from furchain.text.grammars import JSON_GRAMMAR
 from furchain.text.llama_cpp_client import LlamaCppClient
 
 CLASS_DICT = {
@@ -34,6 +39,7 @@ CLASS_DICT = {
     'SystemMessage': SystemMessage,
     'MessagesPlaceholder': MessagesPlaceholder
 }
+
 
 class Meta_v2(BaseModel):
     """
@@ -228,6 +234,8 @@ class Scenario(BaseModel_v1):
             scenario_description=data['scenario_description'],
             meta=Meta_v2(**data['meta'])
         )
+
+
 class _Character_v2(BaseModel):
     """
     A Pydantic model for character data used to generate GBNF grammar.
@@ -424,6 +432,7 @@ class LlamaCpp(Runnable):
         invoke(input: str | list | dict, config: Optional[RunnableConfig] = None, **kwargs) -> Output: Invokes the LlamaCpp client with the given input and returns the output.
         stream(input: str | list | dict, config: Optional[RunnableConfig] = None, **kwargs: Optional[Any]) -> Iterator[Output]: Streams the LlamaCpp client with the given input and yields the output.
     """
+
     def __init__(self, base_url=None, api_key=None, chat_format: ChatFormat = ChatFormat.Alpaca, **kwargs):
         self.client = LlamaCppClient(base_url, api_key)
         self.chat_format = chat_format
@@ -441,9 +450,13 @@ class LlamaCpp(Runnable):
         Returns:
             Output: The output from the LlamaCpp client.
         """
+        if isinstance(input, ChatPromptValue):
+            input = self.chat_format.parser.parse(input)
         if isinstance(input, (str, list)):
             input = {"prompt": input}
-        return self.client.complete(input, **kwargs, **self.model_kwargs)['content']
+        response = self.client.complete(input, **kwargs, **self.model_kwargs)
+        logger.debug(response)
+        return response['content']
 
     def stream(
             self,
@@ -462,6 +475,8 @@ class LlamaCpp(Runnable):
         Yields:
             Output: The output from the LlamaCpp client.
         """
+        if isinstance(input, ChatPromptValue):
+            input = self.chat_format.parser.parse(input)
         if isinstance(input, (str, list)):
             input = {"prompt": input}
         for i in self.client.stream(input, **kwargs, **self.model_kwargs):
@@ -583,7 +598,7 @@ class Session(BaseModel_v1):
             dict: A dictionary representation of the session.
         """
         result = self.chat_history_proxy.dict()
-        result.pop("_id")
+        result.pop("_id", None)
         return result
 
     @classmethod
@@ -679,6 +694,8 @@ class Session(BaseModel_v1):
             None
         """
         self.chat_history_proxy.clear()
+
+
 class Chat(Runnable):
     """
     A class that represents a chat in a role-playing game.
@@ -687,12 +704,11 @@ class Chat(Runnable):
         llm (LlamaCpp | RunnableBinding): The LlamaCpp instance or a RunnableBinding.
         session (Session): The session.
         chat_prompt_template (ChatPromptTemplate): The chat prompt template.
-        response_prefix (str): The response prefix.
         grammar (str): The grammar.
         kwargs (dict): Additional keyword arguments.
 
     Methods:
-        _get_chain_params(query: str, response_prefix: str = None, **kwargs): Gets the chain parameters.
+        _get_chain_params(query: str, **kwargs): Gets the chain parameters.
         invoke(input: dict | str, config: Optional[RunnableConfig] = None, **kwargs: Any) -> Output: Invokes the chat with the given input and returns the output.
         stream(input: dict | str, config: Optional[RunnableConfig] = None, **kwargs: Any) -> Iterable[Output]: Streams the chat with the given input and yields the output.
     """
@@ -700,12 +716,16 @@ class Chat(Runnable):
     def __init__(self, llm: LlamaCpp | RunnableBinding,
                  session: Session,
                  chat_prompt_template: ChatPromptTemplate = None,
-                 response_prefix: str = None,
-                 grammar: str = '',
+                 grammar: str = None,
+                 tools: list[Tool] = None,
                  **kwargs):
         super().__init__()
-        if response_prefix is None:
-            response_prefix = session.npc.character_name + ':'
+
+        if grammar is None:
+            self.grammar = r'''root ::= "''' + session.npc.character_name.encode("unicode-escape").decode(
+                "utf-8") + r''':" [\u4E00-\u9FFFA-Za-z0-9\u0021-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u007E\uFF01-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65\u3002\n ]*'''  # Start with the npc's name, followed by any characters
+        else:
+            self.grammar = grammar
         if isinstance(llm, RunnableBinding):
             model_kwargs = llm.kwargs
             llm = llm.bound
@@ -713,39 +733,55 @@ class Chat(Runnable):
             model_kwargs = llm.model_kwargs
         chat_format = llm.chat_format
         self.kwargs = kwargs
+        self.tools = tools
         chat_format_parser = chat_format.parser if isinstance(chat_format, ChatFormat) else ChatFormat(
             chat_format).parser
-        self.llm = llm.bind(stop=model_kwargs.get("stop", []) + chat_format_parser.stop, grammar=grammar)
+        if self.tools:
+            root_grammar = f'''root ::= "{session.npc.character_name.encode("unicode-escape").decode("utf-8")}:" ''' + f'''anything+ (tool | anything)+\n''' + f'''tool ::= {" | ".join(i.tool_name + "-root" for i in self.tools)}\n''' + r'''anything ::= [\u4E00-\u9FFFA-Za-z0-9\u0021-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u007E\uFF01-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65\u3002\n ]'''
+            tool_grammar = '\n'.join([
+                f'''{i.tool_name}-root ::= "{ToolSymbol.TOOL_NAME.value.encode("unicode-escape").decode("utf-8")}" "{i.tool_name}" "{ToolSymbol.TOOL_PARAMETER.value.encode("unicode-escape").decode("utf-8")}" parameter-{i.tool_name}-root "{ToolSymbol.TOOL_OUTPUT.value.encode("unicode-escape").decode("utf-8")}"'''
+                for i in self.tools])
+            json_grammar = "json-" + JSON_GRAMMAR
+            parameter_grammar = '\n'.join([f'parameter-{i.tool_name}-' + i.tool_parameter_grammar for i in self.tools])
+            self.grammar = '\n'.join([
+                root_grammar,
+                tool_grammar,
+                json_grammar,
+                parameter_grammar
+            ])
+        self.llm = llm.bind(stop=model_kwargs.get("stop", []) + chat_format_parser.stop, grammar=self.grammar)
         self.chat_format_parser = chat_format_parser
         self.session = session
-        self.response_prefix = response_prefix
-        self.chat_prompt_template = chat_prompt_template if chat_prompt_template is not None else ROLEPLAY_CHAT_PROMPT_TEMPLATE
+        assert LlamaGrammar.from_string(self.grammar)
 
-    def _get_chain_params(self, query: str, response_prefix: str = None,
+        if chat_prompt_template is None:
+            if self.tools:
+                self.chat_prompt_template = ROLEPLAY_WITH_TOOLS_CHAT_PROMPT_TEMPLATE
+            else:
+                self.chat_prompt_template = ROLEPLAY_CHAT_PROMPT_TEMPLATE
+        else:
+            self.chat_prompt_template = chat_prompt_template
+
+    def _get_chain_params(self, query: str,
                           **kwargs):
         """
         Gets the chain parameters.
 
         Args:
             query (str): The query.
-            response_prefix (str, optional): The response prefix. Defaults to None.
             **kwargs: Additional keyword arguments.
 
         Returns:
             tuple: The chain, parameters, and the function to update the chat history.
         """
-        if response_prefix is None:
-            response_prefix = self.response_prefix
 
         # Define the chain of operations
-        chain = (
+        prompt_template = (
                 RunnableLambda(lambda x: (
                     self.chat_prompt_template.format_prompt(chat_history=messages_from_dict(x.pop('chat_history', [])),
                                                             **x)
                 ))
                 | RunnableLambda(self.chat_format_parser.parse)
-                | RunnableLambda(lambda x: (logger.debug("Prompt: " + x + response_prefix), x + response_prefix)[1])
-                | self.llm
         )
         if "chat_history" in self.chat_prompt_template.input_variables:
             history_messages = self.session.messages
@@ -753,11 +789,11 @@ class Chat(Runnable):
             history_messages = []
         for i in history_messages:
             if isinstance(i, HumanMessage):
-                i.content = i.content.removeprefix(f"{self.session.player.character_name}: ")
-                i.content = f"{self.session.player.character_name}: {i.content}"
+                i.content = i.content.removeprefix(f"{self.session.player.character_name}:")
+                i.content = f"{self.session.player.character_name}:{i.content}"
             elif isinstance(i, AIMessage):
-                i.content = i.content.removeprefix(f"{self.session.npc.character_name}: ")
-                i.content = f"{self.session.npc.character_name}: {i.content}"
+                i.content = i.content.removeprefix(f"{self.session.npc.character_name}:")
+                i.content = f"{self.session.npc.character_name}:{i.content}"
         chat_history = messages_to_dict(history_messages)
         kwargs['npc_name'] = self.session.npc.character_name
         kwargs['npc_persona'] = self.session.npc.persona.format(
@@ -772,26 +808,27 @@ class Chat(Runnable):
             player_name=self.session.player.character_name)
         kwargs['query'] = query
         kwargs['chat_history'] = chat_history
-        kwargs['response_prefix'] = response_prefix
+        if self.tools:
+            kwargs['tools'] = "\n".join([f"{i.tool_name}: {i.tool_description}" for i in self.tools])
 
-        def _update_chat_history(response_with_prefix):
+        def _update_chat_history(response):
             """
             Updates the chat history.
 
             Args:
-                response_with_prefix (str): The response with prefix.
+                response (str): The response from AI.
 
             Returns:
                 None
             """
             human_message = HumanMessage(content=f"{query}")
-            ai_message = AIMessage(content=f"{response_with_prefix}")
+            ai_message = AIMessage(content=f"{response}")
             self.session.add_messages([
                 human_message,
                 ai_message
             ])
 
-        return chain, kwargs, _update_chat_history
+        return prompt_template, kwargs, _update_chat_history
 
     def invoke(
             self, input: dict | str, config: Optional[RunnableConfig] = None, **kwargs: Any
@@ -835,14 +872,48 @@ class Chat(Runnable):
             input = {'query': input}
         params.update(input)
         params.update(kwargs)
-        chain, params, _update_chat_history = self._get_chain_params(**params)
-        stream = chain.stream(params, config)
+        prompt_template, params, _update_chat_history = self._get_chain_params(**params)
+        prompt_template: ChatPromptTemplate
+        chain = prompt_template | self.llm
+        stream = chain.stream(params)
         logger.debug(f"stream input: {params}")
-        yield from StrChunkCallbackIterator(
-            iterable=stream,
-            callbacks=[_update_chat_history],
-            response_prefix=params['response_prefix'],
-        )
+        if not self.tools:
+            yield from StrChunkCallbackIterator(
+                iterable=stream,
+                callbacks=[_update_chat_history],
+            )
+        else:
+            #
+            def _stream(prompt_value, llm, buffer, content=''):
+                logger.debug(f"stream input: {prompt_value}")
+                new_stream = llm.stream(prompt_value)
+                iterator = StrChunkCallbackIterator(
+                    iterable=itertools.chain(buffer, new_stream),
+                    callbacks=[_update_chat_history]
+                )
+                iterator.content = content
+                for token in iterator:
+                    print(f"{token=}")
+                    yield token
+                    if ToolSymbol.TOOL_OUTPUT.value in token:  # meet a tool call end, then look back to extract
+                        tool_call = ToolCall.from_string(iterator.content)
+                        result = tool_call.execute()
+                        prompt_value += iterator.content + result + ToolSymbol.TOOL_END.value
+                        new_iterator = _stream(prompt_value,
+                                               self.llm.bind(grammar=self.grammar.replace(
+                                                   f'''"{self.session.npc.character_name.encode('unicode-escape').decode('utf-8')}:"''',
+                                                   '', 1)),
+                                               result + ToolSymbol.TOOL_END.value,
+                                               iterator.content)
+                        print(self.grammar.replace(
+                                                   f"{self.session.npc.character_name.encode('unicode-escape').decode('utf-8')}:",
+                                                   '', 1))
+                        del iterator
+                        yield from new_iterator
+                        return
+
+            prompt_value = prompt_template.invoke(params)
+            yield from _stream(prompt_value, self.llm, '')
 
 
 class CreateScenarioByChat:
@@ -882,13 +953,13 @@ Examples:
             session=session,
             chat_prompt_template=NO_HISTORY_CHAT_PROMPT_TEMPLATE,
             grammar=json_schema_to_gbnf(json.dumps(_Scenario_v2.model_json_schema()).replace("allOf", "oneOf")),
-            response_prefix=''
         )
         result = chat.invoke(description)
         result = json.loads(result)
         result['meta'] = Meta_v2(**result.get('meta', {}))
         result['type'] = 'scenario'
         return Scenario(**result)
+
 
 class CreateCharacterByChat:
     """
@@ -954,13 +1025,14 @@ Examples:
             session=session,
             chat_prompt_template=NO_HISTORY_CHAT_PROMPT_TEMPLATE,
             grammar=json_schema_to_gbnf(json.dumps(_Character_v2.model_json_schema()).replace("allOf", "oneOf")),
-            response_prefix=''
         )
         result = chat.invoke(description)
         result = json.loads(result)
         result['meta'] = Meta_v2(**result.get('meta', {}))
         result['type'] = 'character'
         return Character(**result)
+
+
 class _Session_v2(BaseModel):
     """
     A Pydantic model for session data used to generate GBNF grammar.
@@ -973,6 +1045,8 @@ class _Session_v2(BaseModel):
     npc: _Character_v2 = Field(description="Characteristics of the npc")
     player: _Character_v2 = Field(description="Characteristics of the player")
     scenario: _Scenario_v2 = Field(description="Characteristics of the scenario")
+
+
 class CreateSessionByChat:
     """
     A class that creates a session by chat.
@@ -1054,7 +1128,6 @@ Examples:
             session=session,
             chat_prompt_template=NO_HISTORY_CHAT_PROMPT_TEMPLATE,
             grammar=json_schema_to_gbnf(json.dumps(_Session_v2.model_json_schema()).replace("allOf", "oneOf")),
-            response_prefix=''
         )
         result = chat.invoke(description)
         result = json.loads(result)

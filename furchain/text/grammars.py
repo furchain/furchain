@@ -1,4 +1,4 @@
-JSON_GRAMMAR = r"""root   ::= object
+JSON_GRAMMAR = r"""root ::= object
 value  ::= object | array | string | number | ("true" | "false" | "null") ws
 
 object ::=

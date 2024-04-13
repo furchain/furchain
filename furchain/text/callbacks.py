@@ -11,7 +11,6 @@ class StrChunkCallbackIterator:
         iterable (iter): The iterable to iterate over.
         callbacks (List[Callable]): The list of callback functions to call when the iteration is finished.
         content (str): The content read so far.
-        response_prefix (str): The prefix to add to the first chunk of content. Default is ''.
         skip (tuple): The chunks to skip.
 
     Methods:
@@ -20,14 +19,13 @@ class StrChunkCallbackIterator:
         __next__(): Returns the next chunk of string data. If the end of the iterable is reached, calls the callbacks and raises StopIteration.
     """
 
-    def __init__(self, iterable, callbacks: List[Callable], response_prefix='', skip=tuple()):
+    def __init__(self, iterable, callbacks: List[Callable], skip=tuple()):
         """
         Initializes the StrChunkCallbackIterator with the given iterable, callbacks, response prefix, and skip.
         """
         self.iterable = iter(iterable)
         self.callbacks = callbacks
         self.content = ''
-        self.response_prefix = response_prefix
         self.skip = skip
 
     def add_callback(self, callback: Callable):
@@ -54,15 +52,11 @@ class StrChunkCallbackIterator:
             if isinstance(chunk, str):
                 if chunk in self.skip:
                     return self.__next__()
-                if self.content == '':
-                    chunk = (self.response_prefix + chunk).lstrip()
                 self.content += chunk
                 return chunk
             else:
                 if chunk.content in self.skip:
                     return self.__next__()
-                if self.content == '':
-                    chunk.content = (self.response_prefix + chunk.content).lstrip()
                 self.content += chunk.content
                 return chunk.content
         except StopIteration as e:

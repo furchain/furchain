@@ -162,3 +162,5 @@ cython_debug/
 # Files help with building docker image
 source.list
 get_pip.py
+
+data

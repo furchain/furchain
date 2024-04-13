@@ -1,7 +1,6 @@
-from typing import Optional
+from urllib.parse import urljoin
 
 import requests
-from langchain_core.runnables import RunnableConfig
 
 from furchain.audio.schema import TTS
 from furchain.config import AudioConfig
@@ -19,7 +18,7 @@ class GPTSovitsClient:
         prompt_language (str): The language of the prompt text.
     """
 
-    def __init__(self, api_base: str, refer_wav_path: str = None, prompt_text: str = None, prompt_language: str = None):
+    def __init__(self, api_base: str, refer_wav_path: str = None, prompt_text: str = None, prompt_language: str = 'auto'):
         self.api_base = api_base
         self.refer_wav_path = refer_wav_path
         self.prompt_text = prompt_text
@@ -57,6 +56,21 @@ class GPTSovitsClient:
         response = requests.post(self.api_base, json=payload)
         return response.content
 
+    def vc(self, refer_wav:bytes, prompt_wav: bytes, prompt_text:str, noise_scale: float = 0.5):
+        params = {
+            'noise_scale': noise_scale,
+            'prompt_text': prompt_text,
+            'prompt_language': self.prompt_language,
+
+        }
+        file = {
+            'prompt_wav': prompt_wav,
+            'refer_wav': refer_wav
+        }
+        response = requests.post(urljoin(self.api_base, "vc"), params=params, files=file)
+        return response.content
+
+
 
 class GPTSovits(TTS):
     """
@@ -68,13 +82,14 @@ class GPTSovits(TTS):
     """
 
     def __init__(self, api_base: str = None, refer_wav_path: str = None, prompt_text: str = None,
-                 prompt_language: str = None):
+                 prompt_language: str = None, text_language=None):
         super().__init__()
         if api_base is None:
             api_base = AudioConfig.get_gpt_sovits_api_base()
+        self.text_language = text_language
         self.client = GPTSovitsClient(api_base, refer_wav_path, prompt_text, prompt_language)
 
-    def run(self, text: str, text_language: str) -> bytes:
+    def run(self, text: str, text_language: str = None) -> bytes:
         """
         This method converts the given text to speech by calling the infer method of the client.
 
@@ -85,22 +100,11 @@ class GPTSovits(TTS):
         Returns:
             bytes: The speech in bytes.
         """
+        if text_language is None:
+            text_language = self.text_language
         return self.client.infer(text, text_language)
 
-    def invoke(
-            self, input: dict, config: Optional[RunnableConfig] = None
-    ) -> bytes:
-        """
-        This method is a wrapper for the run method. It takes a dictionary as input and unpacks it to call the run method.
 
-        Args:
-            input (dict): The input parameters for the run method.
-            config (Optional[RunnableConfig]): The configuration for the runnable. Default is None.
-
-        Returns:
-            bytes: The speech in bytes.
-        """
-        return self.run(**input)
 
 
 __all__ = [

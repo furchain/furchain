@@ -1,5 +1,6 @@
 import queue
 
+
 class BufferIterator:
     """
     A class that provides an iterator interface for a buffer.

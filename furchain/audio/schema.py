@@ -13,7 +13,14 @@ class TTS(Runnable, metaclass=abc.ABCMeta):
     It inherits from the Runnable class and uses the ABCMeta metaclass to enforce the implementation
     of the abstract methods in any concrete subclass.
     """
-    ...
+
+    def run(self, text: str, *args, **kwargs):
+        raise NotImplementedError
+
+    def invoke(self, input: dict | str, config: Optional[RunnableConfig] = None) -> Output:
+        if isinstance(input, str):
+            input = {"text": input}
+        return self.run(**input)
 
 
 class VC(Runnable, metaclass=abc.ABCMeta):
@@ -74,6 +81,15 @@ class VC(Runnable, metaclass=abc.ABCMeta):
 class STT(Runnable, metaclass=abc.ABCMeta):
     """
     The STT class is an abstract base class that represents a Speech-to-Text (STT) service.
+    It inherits from the Runnable class and uses the ABCMeta metaclass to enforce the implementation
+    of the abstract methods in any concrete subclass.
+    """
+    ...
+
+
+class FeatureExtraction(Runnable, metaclass=abc.ABCMeta):
+    """
+    The FeatureExtraction class is an abstract base class that represents a feature extraction service.
     It inherits from the Runnable class and uses the ABCMeta metaclass to enforce the implementation
     of the abstract methods in any concrete subclass.
     """
