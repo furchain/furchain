@@ -6,8 +6,6 @@ from typing import Literal
 import ffmpeg
 from pydub import AudioSegment
 
-from furchain.audio.utils.play import get_format_from_magic_bytes
-
 
 def convert_to_pcm(audio_bytes: bytes, sample_rate: int = 16000) -> bytes:
     """
@@ -20,12 +18,8 @@ def convert_to_pcm(audio_bytes: bytes, sample_rate: int = 16000) -> bytes:
     Returns:
         bytes: The audio file in PCM format.
     """
-    audio_format = get_format_from_magic_bytes(audio_bytes)
 
-    if audio_format == 'unknown':
-        raise ValueError("Unknown audio format. Cannot convert to PCM.")
-
-    audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format=audio_format)
+    audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
 
     buffer = io.BytesIO()
     audio.export(buffer, format='wav', parameters=["-ar", str(sample_rate)])
@@ -49,12 +43,8 @@ def convert_to_mp3(audio_bytes: bytes, sample_rate: int = 16000) -> bytes:
     Returns:
         bytes: The audio file in MP3 format.
     """
-    audio_format = get_format_from_magic_bytes(audio_bytes)
 
-    if audio_format == 'unknown':
-        raise ValueError("Unknown audio format. Cannot convert to MP3.")
-
-    audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format=audio_format)
+    audio = AudioSegment.from_file(io.BytesIO(audio_bytes), )
 
     buffer = io.BytesIO()
     audio.export(buffer, format='mp3', parameters=["-ar", str(sample_rate)])
