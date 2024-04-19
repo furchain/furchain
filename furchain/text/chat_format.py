@@ -352,6 +352,52 @@ class QwenChatFormatParser(ChatMLChatFormatParser):
         return prompt
 
 
+class Llama3ChatFormatParser(ChatFormatParser):
+    """
+    Chat format parser for the Llama3 format.
+
+    Attributes:
+        _system_prefix (str): Prefix for system messages.
+        _human_prefix (str): Prefix for user messages.
+        _ai_prefix (str): Prefix for assistant messages.
+        _sep (str): Separator string.
+        stop (list): List of stop words or phrases.
+
+    Methods:
+        parse(chat_prompt_value: ChatPromptValue): Parses a chat prompt value in the Llama3 format.
+    """
+    _system_prefix = "<|start_header_id|>system<|end_header_id|>\n\n"
+    _human_prefix = "<|start_header_id|>user<|end_header_id|>\n\n"
+    _ai_prefix = "<|start_header_id|>assistant<|end_header_id|>\n\n"
+    _sep = "<|eot_id|>"
+    stop = ["<|end_of_text|>", _sep]
+
+    @classmethod
+    def parse(cls, chat_prompt_value: ChatPromptValue) -> str:
+        """
+        Parses a chat prompt value in the Llama3 format.
+
+        Args:
+            chat_prompt_value (ChatPromptValue): The chat prompt value to parse.
+
+        Returns:
+            str: The parsed chat prompt value.
+        """
+        messages = chat_prompt_value.messages
+        prompt = "<|begin_of_text|>"
+        system_message = ''
+        if len(messages) > 0 and isinstance(messages[0], SystemMessage):
+            system_message = cls._system_prefix + messages[0].content
+            messages = messages[1:]
+        prompt += system_message + cls._sep
+        for idx, i in enumerate(messages):
+            if isinstance(i, HumanMessage):
+                prompt += cls._human_prefix + i.content + cls._sep
+            elif isinstance(i, AIMessage):
+                prompt += cls._ai_prefix + i.content + cls._sep
+        prompt += cls._ai_prefix
+        return prompt
+
 class ChatFormat(enum.Enum):
     """
     Enum for chat formats.
@@ -376,6 +422,7 @@ class ChatFormat(enum.Enum):
     Llama2 = 'Llama2'
     Vicuna = 'Vicuna'
     Qwen = 'Qwen'
+    Llama3 = 'Llama3'
 
     @property
     def parser(self) -> ChatFormatParser:
@@ -392,7 +439,8 @@ class ChatFormat(enum.Enum):
             ChatFormat.ChatML: ChatMLChatFormatParser,
             ChatFormat.Llama2: Llama2ChatFormatParser,
             ChatFormat.Vicuna: VicunaChatFormatParser,
-            ChatFormat.Qwen: QwenChatFormatParser
+            ChatFormat.Qwen: QwenChatFormatParser,
+            ChatFormat.Llama3: Llama3ChatFormatParser
         }[self]()
 
 
