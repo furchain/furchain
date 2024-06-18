@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "furchain"
-version = "0.1.5"
+version = "0.1.6"
 description = "FurChain is an innovative toolkit for creating and interacting with digital personas, complete with voice cloning and role-playing capabilities. It offers a suite of tools for real-time voice manipulation, chatbot creation, and text-based RPG adventures, all while being open-source and operable offline."
 authors = ["markyfsun <mark@furchain.xyz>"]
 readme = "README.md"
@@ -13,7 +13,7 @@ pydub = "^0.25.1"
 soundfile = "^0.12.1"
 requests = "^2.31.0"
 sympy = "^1.12"
-#audio-separator = { extras = ["gpu"], version = "^0.13.0" }
+audio-separator = { extras = ["gpu"], version = "^0.13.0" }
 langchain-core = "^0.1.16"
 langchain-community = "^0.0.16"
 openai = "^1.10.0"

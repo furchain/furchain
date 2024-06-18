@@ -49,6 +49,20 @@ services:
               count: all
               capabilities: [ gpu ]
 
+  audio-chat-tts:
+    image: markyfsun/chat-tts:latest
+    restart: unless-stopped
+    ports:
+      - "9966:9966"
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+
   audio-funasr:
     image: markyfsun/funasr-online-cpu:latest
     restart: unless-stopped

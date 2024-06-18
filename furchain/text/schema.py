@@ -720,12 +720,7 @@ class Chat(Runnable):
                  tools: list[Tool] = None,
                  **kwargs):
         super().__init__()
-
-        if grammar is None:
-            self.grammar = r'''root ::= "''' + session.npc.character_name.encode("unicode-escape").decode(
-                "utf-8") + r''':" [\u4E00-\u9FFFA-Za-z0-9\u0021-\u002F\u003A-\u0040\u005B-\u0060\u007B-\u007E\uFF01-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65\u3002\n ]*'''  # Start with the npc's name, followed by any characters
-        else:
-            self.grammar = grammar
+        self.grammar = grammar
         if isinstance(llm, RunnableBinding):
             model_kwargs = llm.kwargs
             llm = llm.bound
@@ -749,10 +744,14 @@ class Chat(Runnable):
                 json_grammar,
                 parameter_grammar
             ])
-        self.llm = llm.bind(stop=model_kwargs.get("stop", []) + chat_format_parser.stop, grammar=self.grammar)
+        if self.grammar:
+            self.llm = llm.bind(stop=model_kwargs.get("stop", []) + chat_format_parser.stop, grammar=self.grammar)
+            assert LlamaGrammar.from_string(self.grammar)
+        else:
+            self.llm = llm.bind(stop=model_kwargs.get("stop", []) + chat_format_parser.stop)
         self.chat_format_parser = chat_format_parser
         self.session = session
-        assert LlamaGrammar.from_string(self.grammar)
+
 
         if chat_prompt_template is None:
             if self.tools:
