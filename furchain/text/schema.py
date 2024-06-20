@@ -4,6 +4,7 @@ from typing import Optional, Any, Iterable, Iterator
 
 import requests
 from langchain.output_parsers import PydanticOutputParser
+from langchain_community.chat_models import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.messages import SystemMessage, messages_from_dict
 from langchain_core.messages import messages_to_dict
@@ -1141,11 +1142,14 @@ Examples:
             collection_name=collection_name
         )
 
+class DeepSeek(ChatOpenAI):
+    openai_api_base = "https://api.deepseek.com"
 
 __all__ = [
     "LlamaCpp",
     "Chat",
     "Session",
     "Character",
-    "Scenario"
+    "Scenario",
+    "DeepSeek",
 ]

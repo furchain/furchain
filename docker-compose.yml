@@ -85,7 +85,7 @@ services:
               capabilities: [ gpu ]
 
   image-stable-diffusion-webui:
-    image: markyfsun/stable-diffusion-webui:latest
+    image: markyfsun/stable-diffusion-webui-forge:latest
     restart: unless-stopped
     command: --no-half --no-half-vae --precision full --api --enable-insecure-extension-access --skip-install
     ports:
