@@ -1,382 +1,227 @@
 from dataclasses import dataclass
 
+import requests
 from langchain_core.output_parsers import StrOutputParser
 
 vnml_documentation = """### VNML Syntax Documentation
 
-VNML (Visual Novel Markup Language) is designed to construct and manage interactive visual novel narratives. This
-document details the syntax and fields of VNML, accompanied by examples.
+VNML (Visual Novel Markup Language) is a subset of XML, designed to create and manage interactive visual novel narratives. This document provides a comprehensive guide to the syntax and fields of VNML, along with illustrative examples.
 
 ### Syntax Overview
 
-#### `<setup>`
+#### `<vnml lang="...">`
 
-The `<setup>` section defines the initial setup of the visual novel, including character personalities, story
-background, and objectives. Characters are divided into NPCs (non-player characters) and the player.
+The root element that encapsulates the entire visual novel script. The `lang` attribute specifies the language used in comments and dialogues.
 
-##### Fields:
-
-- **`<story>`**: Contains the story background and objectives.
-    - **`<background>`**: Describes the background setting of the story.
-    - **`<objective>`**: Describes the main objective or goal of the story.
-
-- **`<npcs>`**: Contains the definitions of each non-player character.
-    - **`<npc>`**: Defines a non-player character.
-        - **`name`**: The name of the character.
-        - **`identifier`**: Describes the character's basic information such as age, gender, and physical traits (
-          excluding clothing and accessories).
-        - **`habits`**: Describes the character's typical behaviors and habits.
-        - **`core-traits`**: Describes the core traits of the character's personality.
-        - **`self-perception`**: Describes how the character perceives themselves.
-        - **`dark-side`**: Describes the character's negative traits or hidden side.
-
-- **`<player>`**: Defines the player character.
-    - **`name`**: The name of the player character.
-    - **`identifier`**: Describes the character's basic information such as age, gender, and physical traits (excluding
-      clothing and accessories).
-    - **`habits`**: Describes the character's typical behaviors and habits.
-    - **`core-traits`**: Describes the core traits of the character's personality.
-    - **`self-perception`**: Describes how the character perceives themselves.
-    - **`dark-side`**: Describes the character's negative traits or hidden side.
-
-- **`<relationships>`**: Defines the relationships between characters.
-    - **`<relationship>`**: Describes a relationship between two characters.
-        - **`category`**: The category of the relationship, which can be either:
-            - **`formal`**: Represents explicit, socially recognized relationships (e.g., friends, family, colleagues).
-            - **`hidden`**: Represents implicit, unspoken relationships (e.g., secret crushes, past affairs).
-        - **`type`**: The type of relationship (e.g., friend, love).
-        - **`from`**: The character from whom the relationship originates.
-        - **`to`**: The character to whom the relationship is directed.
-        - **`description`**: A description of the relationship.
-
-#### `<player-input>`
-
-The `<player-input>` section defines player commands or inputs.
+**Note**: Except for the `name` attribute, all other attributes should always be written in English.
 
 ##### Fields:
 
-- **`<command>`**: The command or input taken by the user.
-
-#### `<ai-response>`
-
-The `<ai-response>` section defines the AI's response to user input, including scene settings, scripts, user inventory,
-and multiple-choice options.
-
-##### Fields:
-
-- **`<scene>`**: Defines the initial scene settings.
+- **`<scene>`**: Specifies the initial scene settings and can appear multiple times to denote scene changes. This element is required and must appear at least once.
     - **`<background>`**: Describes the background scene using keywords.
-        - **`keywords`**: A comma-separated list of keywords describing the background (e.g., "stormy night, abandoned
-          mansion").
+        - **`keywords`**: A comma-separated list of keywords describing the background (e.g., "stormy night, abandoned mansion").
     - **`<music>`**: Describes the background music using keywords.
-        - **`keywords`**: A comma-separated list of keywords describing the music (e.g., "tense, orchestral, eerie").
+        - **`keywords`**: A comma-separated list of keywords describing the music, including instruments, genre, and era (e.g., "tense, orchestral, eerie, strings, 19th century").
 
-- **`<dialogue>`**: Contains mixed narration and dialogue. Should exceed 50 lines.
-    - **`<narration>`**: Describes the narration text.
-    - **`<npc>`**: Describes the dialogue text and clothes of the NPC.
-        - **`name`**: The name of the character speaking.
-        - **`emotion`**: The emotion of the character while speaking (if different from the previous dialogue).
-        - **`clothes`**: A comma-separated list of items describing the character's clothing and accessories (if
-          different from the previous dialogue).
-    - **`<player>`**: Describes the dialogue text and clothes of the Player.
-        - **`name`**: The name of the character speaking.
-        - **`emotion`**: The emotion of the character while speaking (if different from the previous dialogue).
-        - **`clothes`**: A comma-separated list of items describing the character's clothing and accessories (if
-          different from the previous dialogue).
-    - **`<passerby>`**: Describes a one-time character appearing in the dialogue.
-        - **`name`**: The name of the passerby character.
-        - **`identifier`**: Describes the character's basic information such as age, gender, and physical traits (
-          excluding clothing and accessories).
-        - **`emotion`**: The emotion of the character while speaking (if different from the previous dialogue).
-        - **`clothes`**: A comma-separated list of items describing the character's clothing and accessories (if
-          different from the previous dialogue).
-    - **`<sound-effect>`**: Describes sound-effect effects in the script.
-        - **`keywords`**: A comma-separated list of keywords describing the sound-effect effect (e.g., "thunder,
-          creaking, footsteps").
-        - **`duration`**: Duration of the sound-effect effect in seconds (e.g., "3s").
+- **`<dialogue>`**: Contains a mix of narration and dialogue. This element should exceed 50 lines and is required to appear at least once.
+    - **`<narration>`**: Provides the narration text.
+    - **`<character>`**: Contains the dialogue text in spoken style and describes the character's attributes.
+        - **`name`**: The name of the speaking character.
+        - **`identifier`**: Describes the character's basic information such as age, gender, and physical traits, excluding clothing and accessories (if different from the previous dialogue).
+        - **`emotion`**: The character's emotion while speaking (if different from the previous dialogue).
+        - **`clothes`**: A comma-separated list of items describing the character's current clothing and accessories (if different from the previous dialogue).
 
-- **`<options>`**: Defines the user's multiple-choice options.
+- **`<options>`**: Defines the user's multiple-choice options. This element is required and must appear at least once.
     - **`<title>`**: The title of the multiple-choice section.
-    - **`<option>`**: Each option that the user can choose.
-        - **`text`**: The text of the option.
+    - **`<option>`**: Each option available for the user to choose.
 
-In VNML, comments serve as a versatile tool for developers. They can be utilized as a scratchpad for jotting down
-thoughts, planning code structure, storing hints for future reference, and more.
+- **`<action>`**: Specifies the user's selected action from the multiple-choice options. This element is required and follows the `<options>` element.
 
 ### Example
 
-```xml
-
-<vnml version="1">
-    <!-- Establishing the initial setting and characters for the story -->
-    <setup>
-        <story>
-            <background>Deep within the forest lies a hidden ruin, rumored to hold ancient secrets.</background>
-            <objective>Uncover the truth behind the ruins and unlock their mysteries.</objective>
-        </story>
-        <npcs>
-            <!-- Tharok: A character with a strong sense of duty and honor, but with a hidden envy for Eldric's abilities -->
-            <npc name="Tharok">
-                <identifier>Orc, 35 years old, male, yellow eyes, green skin, muscular build</identifier>
-                <habits>Enjoys crafting weapons, often seen training in combat</habits>
-                <core-traits>Strong, honorable, stoic</core-traits>
-                <self-perception>Sees himself as a protector of his tribe</self-perception>
-                <dark-side>Can be ruthless and uncompromising</dark-side>
-            </npc>
-            <!-- Ragna: A vigilant and loyal scout, with a secret fear of Tharok's ruthlessness -->
-            <npc name="Ragna">
-                <identifier>Wolfkin, 22 years old, female, blue eyes, gray fur, agile build</identifier>
-                <habits>Frequently scouts the surroundings, enjoys hunting</habits>
-                <core-traits>Alert, loyal, cunning</core-traits>
-                <self-perception>Sees herself as the eyes and ears of the team</self-perception>
-                <dark-side>Can be distrustful and secretive</dark-side>
-            </npc>
-        </npcs>
-        <!-- Eldric: The player character, a seeker of knowledge with a cautious nature -->
-        <player name="Eldric">
-            <identifier>Human, 30 years old, male, brown eyes, fair skin, short black hair, average build</identifier>
-            <habits>Enjoys studying ancient texts, has a passion for magic</habits>
-            <core-traits>Wise, curious, compassionate</core-traits>
-            <self-perception>Sees himself as a seeker of knowledge</self-perception>
-            <dark-side>Can be overly cautious and skeptical</dark-side>
-        </player>
-        <!-- Establishing complex relationships among characters to add depth to the narrative -->
-        <relationships>
-            <relationship category="formal" type="friend" from="Eldric" to="Tharok">Eldric and Tharok have a mutual
-                respect forged in battle
-            </relationship>
-            <relationship category="hidden" type="envy" from="Tharok" to="Eldric">Tharok envies Eldric's magical
-                abilities and knowledge
-            </relationship>
-            <relationship category="hidden" type="fear" from="Ragna" to="Tharok">Ragna secretly fears Tharok's
-                ruthlessness
-            </relationship>
-            <relationship category="hidden" type="resentment" from="Tharok" to="Ragna">Tharok resents Ragna's
-                distrustful nature
-            </relationship>
-            <relationship category="hidden" type="guilt" from="Eldric" to="Ragna">Eldric feels guilty for a past
-                incident that endangered Ragna
-            </relationship>
-        </relationships>
-    </setup>
-
-    <!-- The player's action to drive the story forward -->
-    <player-input>
-        <command>Investigate the ruins</command>
-    </player-input>
-
-    <!-- The AI's response to the player's action, advancing the plot -->
-    <ai-response>
-        <!-- Setting the scene to create an immersive atmosphere -->
-        <scene>
-            <background keywords="ancient ruins, dense forest, twilight"/>
-            <music keywords="mystical, ambient, suspenseful"/>
-        </scene>
-
-        <!-- Dialogue and narration to build tension and develop characters, more than 50 lines, clothes of the same character appears only once if not changed -->
-        <dialogue>
-            <narration>The sun was setting as Eldric, Tharok, and Ragna approached the ancient ruins hidden deep within
-                the forest.
-            </narration>
-            <npc name="Ragna" emotion="alert" clothes="leather armor, hunting knife">These ruins are old. We should be
-                careful, Eldric.
-            </npc>
-            <npc name="Ragna">I can sense something watching us.</npc>
-            <npc name="Tharok" emotion="determined" clothes="iron armor, battle axe">We need to find the hidden chamber.
-                It's the only way to uncover the truth.
-            </npc>
-            <npc name="Tharok">Stay focused. We're close to finding it.</npc>
-            <npc name="Tharok" emotion="serious">Remember our training. We can handle whatever comes our way.</npc>
-            <npc name="Tharok">We've faced worse dangers before. This is just another challenge.</npc>
-            <npc name="Tharok" emotion="determined">Keep your guard up and stay vigilant.</npc>
-            <npc name="Tharok">We must be prepared for anything.</npc>
-            <sound-effect keywords="rustling leaves, distant howl" duration="3s"/>
-            <narration>As they ventured deeper into the ruins, the air grew colder, and the shadows seemed to shift
-                around them.
-            </narration>
-            <npc name="Ragna" emotion="nervous">Did you hear that? I think something is following us.</npc>
-            <npc name="Ragna">This place is giving me chills.</npc>
-            <player name="Eldric" emotion="calm" clothes="wizard's robe, staff">It's just the wind, Ragna. Stay close to
-                us.
-            </player>
-            <player name="Eldric">We'll be fine as long as we stick together.</player>
-            <npc name="Tharok" emotion="alert">No, Ragna's right. I sense it too. We need to be cautious.</npc>
-            <npc name="Tharok">Keep your eyes open for anything unusual.</npc>
-            <npc name="Ragna" emotion="curious">But what if it's something more than just the wind?</npc>
-            <npc name="Ragna">I've read about places like this. They often have hidden dangers.</npc>
-            <npc name="Ragna" emotion="nervous">And sometimes, those dangers are better left undisturbed.</npc>
-            <player name="Eldric" emotion="determined">That's exactly why we're here, Ragna. To uncover the truth, no
-                matter how perilous it might be.
-            </player>
-            <player name="Eldric">We can't turn back now.</player>
-            <npc name="Tharok" emotion="supportive">Eldric is right. We've faced worse before. We can handle this.</npc>
-            <npc name="Tharok">Just stay close and trust us.</npc>
-            <npc name="Tharok">We need to stay united and strong.</npc>
-            <npc name="Tharok" emotion="excited">Together, we can overcome any obstacle.</npc>
-            <npc name="Tharok">Let's move forward with confidence.</npc>
-            <sound-effect keywords="footsteps, whispering" duration="4s"/>
-            <narration>Suddenly, they heard faint whispering and footsteps echoing through the ruins.</narration>
-            <npc name="Ragna" emotion="terrified">What was that? It sounded like it came from behind that wall.</npc>
-            <npc name="Ragna">We should be careful.</npc>
-            <player name="Eldric" emotion="calm">Let's check it out. Stay close and be ready for anything.</player>
-            <player name="Eldric">We need to be cautious.</player>
-            <npc name="Tharok" emotion="alert">I'll go first. Cover me.</npc>
-            <npc name="Tharok">Be prepared for anything.</npc>
-            <npc name="Tharok" emotion="determined">We must be ready for whatever lies ahead.</npc>
-            <npc name="Tharok">Stay alert and focused.</npc>
-            <npc name="Tharok">This could be the key to our mission.</npc>
-            <sound-effect keywords="stone grinding" duration="3s"/>
-            <narration>Tharok slowly pushed against the wall, revealing a hidden passageway leading further into the
-                ruins.
-            </narration>
-            <!-- Introducing a passerby character -->
-            <passerby name="Mysterious Figure" identifier="Unknown, cloaked, indistinguishable features"
-                      emotion="mysterious" clothes="dark cloak, hood">
-                Beware, travelers. The path ahead is fraught with peril.
-            </passerby>
-            <npc name="Eldric" emotion="curious">Who are you? And why are you warning us?</npc>
-            <passerby name="Mysterious Figure">I am but a shadow, a remnant of those who came before. Heed my warning,
-                or face the consequences.
-            </passerby>
-            <npc name="Tharok" emotion="determined">We appreciate your warning, but we must proceed. Our mission is too
-                important.
-            </npc>
-            <passerby name="Mysterious Figure">Then may fate be kind to you. Farewell.</passerby>
-            <sound-effect keywords="rustling cloak, footsteps fading" duration="3s"/>
-            <narration>The mysterious figure disappeared into the shadows, leaving the group with an uneasy feeling.
-            </narration>
-        </dialogue>
-
-        <!-- Offering choices to the player to influence the story's direction -->
-        <options title="What should Eldric do next?">
-            <option text="Search the ruins for clues"/>
-            <option text="Explore the hidden passageway"/>
-            <option text="Set up camp and rest"/>
-            <option text="Leave the ruins and regroup"/>
-        </options>
-    </ai-response>
-
-    <!-- The player's decision to drive the narrative forward -->
-    <player-input>
-        <command>Explore the hidden passageway</command>
-    </player-input>
-
-    <!-- The AI's response to the player's choice, continuing the plot's progression -->
-    <ai-response>
-        <!-- Creating an eerie atmosphere as they venture deeper into the ruins -->
-        <scene>
-            <background keywords="dark passageway, ancient carvings, eerie glow"/>
-            <music keywords="mysterious, suspenseful, quiet"/>
-        </scene>
-
-        <!-- Dialogue and narration to build tension and develop characters, more than 50 lines, clothes of the same character appears only once if not changed -->
-        <dialogue>
-            <narration>They entered the dark passageway, the walls adorned with ancient carvings that seemed to glow
-                faintly.
-            </narration>
-            <npc name="Ragna" emotion="curious">These carvings... they tell a story. Something important must be hidden
-                here.
-            </npc>
-            <npc name="Ragna">We need to decipher them.</npc>
-            <player name="Eldric" emotion="focused">Look for anything that might hint at the hidden chamber. Symbols,
-                patterns, anything unusual.
-            </player>
-            <player name="Eldric">We need to find clues quickly.</player>
-            <player name="Eldric">These carvings might hold the key to understanding the ruins.</player>
-            <player name="Eldric">Pay close attention to every detail.</player>
-            <player name="Eldric">We can't afford to miss anything important.</player>
-            <player name="Eldric">Time is of the essence. Let's move.</player>
-            <sound-effect keywords="pages rustling, thud" duration="2s"/>
-            <npc name="Tharok" emotion="tense">Did you hear that? It sounded like it came from deeper within the
-                passage.
-            </npc>
-            <npc name="Tharok">We should check it out.</npc>
-            <npc name="Tharok">Stay alert, there might be traps.</npc>
-            <npc name="Tharok">We need to be cautious.</npc>
-            <npc name="Tharok">Let's proceed carefully.</npc>
-            <npc name="Tharok">We can't afford any mistakes.</npc>
-            <sound-effect keywords="stone grinding, secret door" duration="3s"/>
-            <narration>With a creak, a section of the wall slid aside, revealing a hidden chamber filled with ancient
-                artifacts.
-            </narration>
-            <npc name="Ragna" emotion="anxious">Are we really going in there?</npc>
-            <npc name="Ragna">It looks dangerous.</npc>
-            <player name="Eldric" emotion="determined">Yes, we are. This might be the key to uncovering the secrets of
-                the ruins.
-            </player>
-            <player name="Eldric">We have to take the risk.</player>
-            <npc name="Tharok" emotion="resolute">Eldric's right. We've come too far to turn back now.</npc>
-            <npc name="Tharok">Let's proceed, but stay on guard.</npc>
-            <narration>As they stepped into the hidden chamber, the air grew colder, and an eerie silence enveloped
-                them.
-            </narration>
-            <npc name="Ragna" emotion="nervous">I don't like this. Something feels off.</npc>
-            <npc name="Ragna">We need to be very careful.</npc>
-            <player name="Eldric" emotion="focused">Let's search the room. Look for anything that might give us a clue
-                about the ruins' secrets.
-            </player>
-            <player name="Eldric">We need to be thorough in our search.</player>
-            <sound-effect keywords="footsteps, echoing" duration="4s"/>
-            <narration>They spread out, examining the ancient artifacts and inscriptions that covered the walls.
-            </narration>
-            <npc name="Tharok" emotion="curious">These symbols... they look familiar. I've seen them in old texts.</npc>
-            <npc name="Tharok">They might be related to the ancient guardians of this place.</npc>
-            <npc name="Ragna" emotion="excited">Look here, Eldric! This artifact... it seems to be a key of some sort.
-            </npc>
-            <npc name="Ragna">It might unlock a hidden mechanism.</npc>
-            <player name="Eldric" emotion="interested">Good find, Ragna. Let's see if we can use it to reveal more
-                secrets.
-            </player>
-            <player name="Eldric">This might be the breakthrough we need.</player>
-            <sound-effect keywords="clicking, mechanism activating" duration="3s"/>
-            <narration>As Eldric placed the artifact into a slot in the wall, a hidden door slowly opened, revealing a
-                staircase leading further down.
-            </narration>
-            <npc name="Tharok" emotion="determined">This is it. We need to go deeper.</npc>
-            <npc name="Tharok">Stay close and be ready for anything.</npc>
-            <npc name="Ragna" emotion="anxious">I hope we're not walking into a trap.</npc>
-            <npc name="Ragna">But we have no choice but to proceed.</npc>
-            <player name="Eldric" emotion="resolute">Let's move. We need to uncover the truth, no matter the cost.
-            </player>
-            <player name="Eldric">We're in this together.</player>
-            <sound-effect keywords="footsteps, descending stairs" duration="5s"/>
-            <narration>They descended the staircase, their footsteps echoing through the ancient stone corridor.
-            </narration>
-            <npc name="Tharok" emotion="alert">Keep your eyes open. We don't know what lies ahead.</npc>
-            <npc name="Tharok">We need to be prepared for anything.</npc>
-            <npc name="Ragna" emotion="nervous">I have a bad feeling about this.</npc>
-            <npc name="Ragna">But we must press on.</npc>
-            <player name="Eldric" emotion="determined">We're close to uncovering the truth. Let's keep moving.</player>
-            <sound-effect keywords="distant chanting, eerie" duration="4s"/>
-            <narration>As they reached the bottom of the staircase, they heard distant chanting, growing louder with
-                each step.
-            </narration>
-            <npc name="Tharok" emotion="tense">Do you hear that? It sounds like chanting.</npc>
-            <npc name="Tharok">We need to be careful.</npc>
-            <npc name="Ragna" emotion="fearful">This can't be good. We should be ready for anything.</npc>
-            <player name="Eldric" emotion="focused">Let's proceed with caution. We need to find out what's happening
-                here.
-            </player>
-            <sound-effect keywords="chanting, increasing volume" duration="5s"/>
-            <narration>They followed the sound of chanting, which led them to a large, dimly lit chamber filled with
-                ancient relics and symbols.
-            </narration>
-            <npc name="Tharok" emotion="alert">This must be the heart of the ruins. Be on guard.</npc>
-            <npc name="Ragna" emotion="anxious">What is this place? It feels... powerful.</npc>
-            <player name="Eldric" emotion="determined">This is it. The answers we seek must be here. Let's find them.
-            </player>
-        </dialogue>
-
-        <!-- Offering new choices to the player to influence the story's direction -->
-        <options title="What should Eldric do next?">
-            <option text="Investigate the chanting"/>
-            <option text="Examine the ancient relics"/>
-            <option text="Search for hidden passages"/>
-            <option text="Prepare for a potential confrontation"/>
-        </options>
-    </ai-response>
+```vnml
+<vnml lang="zh">
+    <!-- 场景标签，定义初始场景设置。 -->
+    <scene>
+        <!-- 背景标签，使用关键词描述场景的背景。
+             除了name属性，所有的attribute都应该是英文。
+             注意："twilight" 可能会设置一种神秘和阴森的基调。 -->
+        <background keywords="dense forest, ancient ruins, twilight, overgrown vines, crumbling structures"/>
+        
+        <!-- 音乐标签，使用关键词描述背景音乐。
+             除了name属性，所有的attribute都应该是英文。 
+             注意：音乐应与阴森的氛围相辅相成。 -->
+        <music keywords="mysterious, tense, ambient, echoing, faint whispers, strings, 19th century"/>
+    </scene>
+    
+    <!-- 对话标签，包含叙述和角色对话。
+         除了name属性，所有的attribute都应该是英文。 
+         注意：确保对话超过50行，以增加深度。 -->
+    <dialogue>
+        <!-- 叙述标签，用于提供叙述文本。
+             设置场景并介绍角色的到来。 -->
+        <narration>
+            黄昏的薄雾在古老的废墟间弥漫，宛如一层轻纱笼罩在这片被遗忘的土地上。埃尔德里克、萨洛克和拉格娜三人悄然踏入，仿佛打扰了沉睡千年的幽灵。迷离的暮色中，废墟仿佛在低语，诉说着千年未解的秘密，令人不禁心生敬畏。
+        </narration>
+        
+        <!-- 角色对话，包含姓名、标识符、情感和服装属性。
+             除了name属性，所有的attribute都应该是英文。
+             注意：详细介绍角色。 -->
+        <character name="拉格娜" identifier="Wolfkin, 22 years old, female, blue eyes, gray fur, agile build" emotion="alert" clothes="leather armor, cloak">
+            这些废墟古老而神秘。埃尔德里克，我们得小心点。我总感觉有双眼睛在暗处盯着我们，仿佛这片土地本身在注视着我们的每一步。
+        </character>
+        <character name="萨洛克" identifier="Orc, 35 years old, male, yellow eyes, green skin, muscular build" emotion="determined" clothes="warrior's garb, weapons">
+            我们的任务是找到那隐藏的房间。这是揭开真相的唯一途径。保持警惕，我们离目标不远了。记住我们的训练，无论前路多么险恶，我们都能应对。
+        </character>
+        
+        <!-- 继续通过环境描述增加紧张感。 -->
+        <narration>
+            随着他们一步步深入，空气愈发寒冷，阴影在他们周围悄然移动，仿佛有无形的力量在暗中窥探。风声在废墟间回荡，犹如鬼魅的低语，令人毛骨悚然。
+        </narration>
+        
+        <!-- 确保角色情感与情境一致。 -->
+        <character name="拉格娜" emotion="alert">
+            你们听到了吗？我感觉到有东西在跟着我们……这地方真他妈的让人不寒而栗。
+        </character>
+        <character name="埃尔德里克" identifier="Human, 30 years old, male, brown eyes, fair skin, short black hair, average build" emotion="calm" clothes="scholar's robes">
+            嗨，那只是风声，拉格娜。靠近些，我们会没事的。只要我们团结一致，就没有什么可怕的。
+        </character>
+        <character name="萨洛克" emotion="alert">
+            不，拉格娜说得对。我也感觉到了。我们得小心，注意任何异常情况。
+        </character>
+        
+        <!-- 引入神秘的声音以增加悬念。 -->
+        <narration>
+            突然，轻微的脚步声和低语在废墟中回荡，仿佛有幽灵在暗中徘徊。
+        </narration>
+        
+        <!-- 角色对声音的反应，增加紧张感。 -->
+        <character name="拉格娜" emotion="fearful">
+            我去，那是什么？听起来像是从那堵墙后面传来的……我们得小心。
+        </character>
+        <character name="埃尔德里克" emotion="calm">
+            走，我们去看看。小心点，待会会发生什么，谁也不知道。
+        </character>
+        <character name="萨洛克" emotion="determined">
+            我先去瞧瞧，你们掩护我。
+        </character>
+        
+        <!-- 发现隐藏通道，设置下一阶段。 -->
+        <narration>
+            萨洛克慢慢地推开一块石墙，露出了一条通向废墟更深处的隐藏通道，黑暗中仿佛有无数双眼睛在注视。
+        </narration>
+        
+        <!-- 角色表达担忧，保持悬念。 -->
+        <character name="拉格娜" emotion="alert">
+            这条通道看起来很危险……你们确定要进去吗？
+        </character>
+        <character name="埃尔德里克" emotion="calm">
+            哼，我们还有别的选择吗？这可能是我们唯一的机会。
+        </character>
+        <character name="拉格娜" emotion="fearful">
+            他娘的……好吧，但我们必须非常小心。我总觉得这里有东西在盯着我们，让我心里发毛……
+        </character>
+        <character name="萨洛克" emotion="determined">
+            别担心，拉格娜。我会在前面探路。你们跟在我后面。
+        </character>
+        
+        <!-- 叙述描述他们通过通道的谨慎前进。 -->
+        <narration>
+            他们沿着狭窄的通道前行，每一步都小心翼翼。通道的尽头是一扇古老的木门，上面刻满了奇异的符文，仿佛在低声诉说着古老的咒语。
+        </narration>
+        
+        <!-- 角色准备面对门后的未知。 -->
+        <character name="埃尔德里克" emotion="calm">
+            这些符文看起来像是古代的防护咒语。让我看看能不能破解它们……
+        </character>
+        <character name="拉格娜" emotion="alert">
+            快点，埃尔德里克，我感觉到有什么东西在接近……
+        </character>
+        <character name="埃尔德里克" emotion="calm">
+            别乌鸦嘴。我正在尽力，给我一点时间。
+        </character>
+        <character name="萨洛克" emotion="determined">
+            我们必须保护埃尔德里克。拉格娜，注意周围的动静。
+        </character>
+        
+        <!-- 通过接近的危险增加高潮。 -->
+        <narration>
+            就在这时，通道的另一端传来了沉重的脚步声，仿佛有什么庞大的生物正在靠近，空气中弥漫着一股压迫感。
+        </narration>
+        
+        <!-- 角色对即将到来的威胁的反应。 -->
+        <character name="拉格娜" emotion="fearful">
+            草！我们得快点！那个东西越来越近了！
+        </character>
+        <character name="埃尔德里克" emotion="calm">
+            我快破解了……再坚持一下！
+        </character>
+        <character name="萨洛克" emotion="determined">
+            拉格娜，准备战斗。我们必须保护埃尔德里克！
+        </character>
+        
+        <!-- 通过门打开解决即将到来的危险。 -->
+        <narration>
+            就在那千钧一发的瞬间，埃尔德里克的手指在古老符文上轻轻滑过，他的眼神集中，全神贯注。他的心跳在胸中砰砰作响，仿佛是在倒数计时。然后，就在那一刻，他成功破解了符文，那扇古老的门缓缓打开，仿佛是在欢迎他们的到来。门后是一个宽敞的房间，里面堆满了古老的文物和书籍。那些书籍被尘封的岁月覆盖，仿佛是在诉说着过去的故事。那些文物静静地躺在那里，仿佛是在等待着他们的发现。时间仿佛在这个房间里停滞，一切都显得那么静谧，那么神秘。
+        </narration>
+    </dialogue>
+    
+    <!-- 场景标签，定义新场景设置。
+         注意：过渡到一个更安全但仍然神秘的环境。 -->
+    <scene>
+        <!-- 背景标签，使用关键词描述新场景的背景。
+             除了name属性，所有的attribute都应该是英文。 
+             注意："ancient library" 暗示了一个充满知识和秘密的地方。 -->
+        <background keywords="ancient library, dimly lit, mysterious, dusty shelves, cobwebs, scattered scrolls"/>
+        
+        <!-- 音乐标签，使用关键词描述新的背景音乐。
+             除了name属性，所有的attribute都应该是英文。
+             注意：音乐现在应该更平静，但仍然保留一丝神秘感。 -->
+        <music keywords="calm, mysterious, ambient, soft echoes, distant chimes, piano, 18th century"/>
+    </scene>
+    
+    <!-- 在新场景中继续对话。
+         除了name属性，所有的attribute都应该是英文。 
+         注意：角色应反映他们的暂时安全并计划下一步。 -->
+    <dialogue>
+        <character name="埃尔德里克" emotion="hurry">
+            我们进去了……快，进去，关上门！
+        </character>
+        <character name="拉格娜" emotion="relaxed">
+            我们安全了吗？这太他妈吓人了。
+        </character>
+        <character name="萨洛克" emotion="determined">
+            先休息一下，然后我们再决定下一步该怎么做。
+        </character>
+        
+        <!-- 叙述暗示他们旅程的继续和即将到来的挑战。 -->
+        <narration>
+            他们终于在房间里找到了暂时的安全，但他们知道，这只是开始，真正的挑战还在前方……
+        </narration>
+    </dialogue>
+    
+    <!-- 选项标签，定义用户的多项选择。
+         注意：提供有意义的选择，影响故事的发展方向。 -->
+    <options>
+        <!-- 多项选择部分的标题。
+             注意：围绕主角的下一个行动框定选择。 -->
+        <title>埃尔德里克接下来要怎么做？</title>
+        
+        <!-- 用户可以选择的每个选项。
+             注意：确保选项多样化，并导致不同的结果。 -->
+        <option>搜索废墟寻找线索</option>
+        <option>探索隐藏的通道</option>
+        <option>安营休息</option>
+        <option>离开废墟重新集结</option>
+    </options>
+    
+    <action>安营休息</action>
+    
+    <!-- 根据行动，续写新的scene、dialogue、options、action -->
 </vnml>
-```"""
+```
+
+**Note:** Apart from the `name` attribute, all other attributes should always be written in English."""
 
 from furchain.text.schema import DeepSeek
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
@@ -384,56 +229,130 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from bs4 import BeautifulSoup
 import random
 
-
-@dataclass
-class Game:
-    setup: str
-    player_inputs: list[str]
-    ai_responses: list[str]
-    llm = DeepSeek(model='deepseek-coder', temperature=1)
+class Booster:
+    llm = DeepSeek(model='deepseek-chat', temperature=1)
+    def __init__(self, history=None):
+        if history is None:
+            self.history = []
+        else:
+            self.history = history
 
     @classmethod
-    def initialize(cls, query) -> "Game":
+    def boost(cls, query):
         chat_prompt = ChatPromptTemplate.from_messages([
-            HumanMessagePromptTemplate.from_template("{query}" + "\n" + vnml_documentation),
+            HumanMessagePromptTemplate.from_template("你是中国著名小说家和视觉小说设计师。你精通VNML语法，擅长使用VNML编写视觉小说。以下是VNML语法文档：\n" + vnml_documentation + "将以下小说转化为VNML格式，注意要保证`dialogue`的丰富。对于小说中没有定义的人物外貌，你可以自行推理。\n```txt\n{query}\n```"),
         ])
         chain = chat_prompt | cls.llm | StrOutputParser()
-        text = chain.invoke({
-            "query": f"You are the master of VNML. Design a visual game using VNML format. Only generate one turn `ai-response`. Dialogue should be longer than 50 lines. Player's name should also be generated. Game requirement: {query}"
-        })
-        soup = BeautifulSoup(text, "lxml")
-        setup = soup.find("setup")
-        player_input = soup.find("player-input")
-        ai_response = soup.find("ai-response")
-        return Game(setup=str(setup), player_inputs=[str(player_input)], ai_responses=[str(ai_response)])
+        text = ''
+        for i in chain.stream({"query": query}):
+            print(i, end='')
+            text += i
+        vnml = BeautifulSoup(text, 'lxml').find('vnml')
+        history = []
+        history.append(HumanMessage(content=f"将以下小说转化为VNML格式，注意要保证`dialogue`的丰富：```txt\n{query}\n```"))
+        history.append(AIMessage(content=str(vnml)))
+        return cls(history)
 
-    def move(self, command: str | None = None):
-        messages = [SystemMessage(
-            vnml_documentation + '''\n\nNow complete the following VNML:\n```xml\n\n<vnml version="1">\n''' + self.setup)]
-        for player_input, ai_response in zip(self.player_inputs, self.ai_responses):
-            messages.append(HumanMessage(player_input))
-            messages.append(AIMessage(ai_response))
-        if not command:
-            options = BeautifulSoup(self.ai_responses[-1]).find_all("option")
-            command = random.choice([i['text'] for i in options])
-        player_input = f"<player-input>\n<command>{command}</command>\n</player-input>"
-        messages.append(HumanMessage(content=player_input))
-        ai_response = (self.llm | StrOutputParser()).invoke(messages)
-        soup = BeautifulSoup(ai_response, "lxml")
-        ai_response = str(soup.find("ai-response"))
-        self.player_inputs.append(player_input)
-        self.ai_responses.append(ai_response)
-        return ai_response
+    def move(self):
+        text = ''
+        for i in (self.llm|StrOutputParser()).stream(self.history + [HumanMessage(content="Continue with VNML.")]):
+            text += i
+            print(i, end='')
+        vnml = BeautifulSoup(text, 'lxml').find('vnml')
+        self.history.append(HumanMessage(content="Continue with VNML."))
+        self.history.append(AIMessage(content=str(vnml)))
 
-    def to_vnml(self, version=1):
-        history = '\n'.join([f"{i}\n{j}" for i, j in zip(self.player_inputs, self.ai_responses)])
-        return f"""<vnml version="{version}">
-{self.setup}
-{history}
-</vnml>"""
+# b = Booster.boost("战争小说，都市战争，装逼")
 
 
-game = Game.initialize("an adventure game in a land where human and furry creatures coexist. The player must uncover the secrets of an ancient ruin while navigating complex relationships with NPCs.")
-print(game.setup)
-while True:
-    print(game.move())
+def process(idx):
+    soup = BeautifulSoup(requests.get(f"https://www.doupocangqiong.org/doupocangqiong/{idx}.html", headers={
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"}).content,
+                         'html.parser')
+    text = soup.find('div', {"id": "content"}).text.strip()[100:].replace(r"\xa0", "")
+    text = text + "\n\n=== 此处插入VNML标签options和action ===\n\n" + soup.find('div', {"id": "content"}).text.strip()[100:].replace(
+        r"\xa0", "")
+    novel = text
+    chat_prompt = ChatPromptTemplate.from_messages([
+        HumanMessagePromptTemplate.from_template(
+            "你是中国著名小说家和视觉小说设计师。你精通VNML语法，擅长使用VNML编写视觉小说。以下是VNML语法文档：\n" + vnml_documentation + "将以下小说转化为VNML格式，内容极其详实。对于小说中没有定义的人物外貌，你可以自行推理。\n```txt\n{query}\n```"),
+    ])
+    llm = DeepSeek(model='deepseek-chat', temperature=0.8)
+    chain = chat_prompt | llm | StrOutputParser()
+    text = ''
+    for i in chain.stream({"query": novel}):
+        print(i, end='')
+        text += i
+    return text
+
+
+content = []
+def run(i):
+    print(f'=== {i} ===')
+    content.append(process(i))
+    import json
+    with open("vnml.json", 'w') as f:
+        json.dump(content, f, ensure_ascii=False)
+
+from concurrent.futures import ThreadPoolExecutor
+with ThreadPoolExecutor() as executor:
+    for i in range(18142,19500):
+        executor.submit(run, i)
+
+executor.shutdown()
+
+
+# b.boost()
+#
+# @dataclass
+# class Game:
+#     setup: str
+#     player_inputs: list[str]
+#     ai_responses: list[str]
+#     llm = DeepSeek(model='deepseek-coder', temperature=1)
+#
+#     @classmethod
+#     def initialize(cls, query) -> "Game":
+#         chat_prompt = ChatPromptTemplate.from_messages([
+#             HumanMessagePromptTemplate.from_template("{query}" + "\n" + vnml_documentation),
+#         ])
+#         chain = chat_prompt | cls.llm | StrOutputParser()
+#         text = chain.invoke({
+#             "query": f"You are the master of VNML. Design a visual game using VNML format. Game requirement: {query}"
+#         })
+#         soup = BeautifulSoup(text, "lxml")
+#         setup = soup.find("setup")
+#         player_input = soup.find("player-input")
+#         ai_response = soup.find("ai-response")
+#         return Game(setup=str(setup), player_inputs=[str(player_input)], ai_responses=[str(ai_response)])
+#
+#     def move(self, command: str | None = None):
+#         messages = [SystemMessage(
+#             vnml_documentation + '''\n\nNow complete the following VNML:\n```xml\n\n<vnml version="1">\n''' + self.setup)]
+#         for player_input, ai_response in zip(self.player_inputs, self.ai_responses):
+#             messages.append(HumanMessage(player_input))
+#             messages.append(AIMessage(ai_response))
+#         if not command:
+#             options = BeautifulSoup(self.ai_responses[-1]).find_all("option")
+#             command = random.choice([i['text'] for i in options])
+#         player_input = f"<player-input>\n<command>{command}</command>\n</player-input>"
+#         messages.append(HumanMessage(content=player_input))
+#         ai_response = (self.llm | StrOutputParser()).invoke(messages)
+#         soup = BeautifulSoup(ai_response, "lxml")
+#         ai_response = str(soup.find("ai-response"))
+#         self.player_inputs.append(player_input)
+#         self.ai_responses.append(ai_response)
+#         return ai_response
+#
+#     def to_vnml(self, version=1):
+#         history = '\n'.join([f"{i}\n{j}" for i, j in zip(self.player_inputs, self.ai_responses)])
+#         return f"""<vnml version="{version}">
+# {self.setup}
+# {history}
+# </vnml>"""
+#
+#
+# game = Game.initialize("an adventure game in a land where human and furry creatures coexist. The player must uncover the secrets of an ancient ruin while navigating complex relationships with NPCs.")
+# print(game.setup)
+# while True:
+#     print(game.move())
